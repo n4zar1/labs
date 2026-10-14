@@ -90,7 +90,7 @@ details.hint summary{cursor:pointer;font-weight:600}
 .win.on{display:block}
 .win h2{margin:0 0 8px}
 .win p{margin:0 0 10px}
-.win code{font:700 15px/1 var(--mono);color:var(--ok);background:#030817;padding:6px 9px;border-radius:6px}
+.win code{font:700 15px/1.5 var(--mono);color:var(--ok);background:#030817;padding:4px 9px;border-radius:6px;overflow-wrap:anywhere;word-break:break-all}
 
 .foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
 .foot a{color:var(--fg)}
