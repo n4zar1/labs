@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lo que dice tu foto · Labs N4zar1</title>
+<meta name="description" content="Reto de OSINT: analiza los metadatos EXIF de una foto y descubre dónde, cuándo y con qué se hizo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>📍 Lo que dice tu foto</h1>
+  <p class="lede">Fácil · ~8 min · Basado en el vídeo «Tu foto dice dónde vives».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> «Lucía» (persona ficticia) vende un sofá en una web de segunda mano y sube la foto original desde el móvil, sin recortar ni comprimir. Un curioso la descarga y la pasa por <code>exiftool</code>.</p>
+    <p><b>Tu misión:</b> averigua lo mismo que él con la salida de abajo.</p>
+  </div>
+
+  <div class="evidence">
+    <div class="hd"><span>$ exiftool IMG_20260927_184211.jpg</span><span>salida recortada</span></div>
+<pre class="dump">File Name                       : IMG_20260927_184211.jpg
+File Size                       : 3.8 MB
+MIME Type                       : image/jpeg
+<b>Make                            : Google</b>
+<b>Camera Model Name               : Pixel 8</b>
+Software                        : HDR+ 1.0.641377693
+Orientation                     : Rotate 90 CW
+Image Width                     : 4080
+Image Height                    : 3072
+<b>Date/Time Original              : 2026:09:27 18:42:11</b>
+Offset Time Original            : +02:00
+Exposure Time                   : 1/120
+F Number                        : 1.7
+ISO                             : 212
+Focal Length                    : 6.9 mm
+Flash                           : Off, Did not fire
+<b>GPS Latitude                    : 40 deg 24' 59.52" N</b>
+<b>GPS Longitude                   : 3 deg 41' 59.40" W</b>
+GPS Altitude                    : 657.3 m Above Sea Level
+GPS Date/Time                   : 2026:09:27 16:42:09Z
+<b>GPS Position                    : 40.416533, -3.699833</b></pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Muchas redes borran el EXIF al publicar, pero las webs de segunda mano, los foros, el correo o enviar «como documento» por WhatsApp suelen conservarlo. Antes de compartir: desactiva la ubicación de la cámara o quita los metadatos (en Android, «Eliminar ubicación» al compartir; en iPhone, «Opciones» → desactivar «Ubicación»).</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Persona y foto ficticias. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+runLab('metadatos', [
+  {q: '¿Con qué modelo de móvil se hizo la foto?', type: 'text', ph: 'Marca y modelo',
+   accept: a => /pixel ?8\b/.test(a),
+   hint: 'Busca los campos <code>Make</code> y <code>Camera Model Name</code>.',
+   explain: 'Google Pixel 8. Parece inofensivo, pero sirve para perfilar a la víctima (o para un phishing creíble: «Problema con tu Pixel 8…»).'},
+  {q: '¿Qué día se hizo? (dd/mm/aaaa)', type: 'text', ph: 'dd/mm/aaaa',
+   accept: a => { const d = a.replace(/[^0-9]/g, ''); return d === '27092026' || d === '20260927'; },
+   hint: 'El campo <code>Date/Time Original</code> usa el formato aaaa:mm:dd.',
+   explain: 'El 27/09/2026 a las 18:42 (hora española, +02:00).'},
+  {q: '¿En qué ciudad se hizo la foto?', type: 'text', ph: 'Ciudad',
+   accept: ['madrid'],
+   hint: 'Copia el valor de <code>GPS Position</code> (40.416533, -3.699833) y pégalo en el buscador de cualquier mapa.',
+   explain: 'Madrid, en pleno centro. Con una foto hecha en casa, las coordenadas llevarían a tu portal con un margen de pocos metros.'},
+  {q: 'Si la foto se hubiera hecho en su casa, ¿qué dato bastaría para encontrarla?', type: 'choice',
+   options: ['El modelo del móvil', 'La hora de la foto', 'Las coordenadas GPS', 'El tamaño del archivo'], correct: 2,
+   explain: 'Las coordenadas GPS. Por eso la medida más importante es que la cámara no guarde la ubicación o quitarla antes de compartir.'},
+], 'N4{tu_foto_habla_mas_de_la_cuenta}');
+</script>
+</body>
+</html>

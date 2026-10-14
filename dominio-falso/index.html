@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caza el dominio falso · Labs N4zar1</title>
+<meta name="description" content="Reto de phishing: distingue los enlaces legítimos de un banco ficticio de los dominios falsos.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.url{font:700 16px/1.4 var(--mono);color:#fff;word-break:break-all}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🎣 Caza el dominio falso</h1>
+  <p class="lede">Fácil · ~5 min · Basado en el vídeo «El detalle que delata una web falsa».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Eres cliente de <b>NovaBanca</b> (banco ficticio), cuya web oficial es <code>novabanca.es</code>. Esta semana te han llegado SMS y correos con estos enlaces.</p>
+    <p><b>Tu misión:</b> decide cuáles llevan de verdad a tu banco y cuáles son phishing. La clave está en leer el <b>dominio real</b>: lo que va justo antes de la primera <code>/</code>, leído de derecha a izquierda.</p>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Regla de oro: no confíes en cómo empieza el enlace, sino en cómo termina el dominio. Y si dudas, escribe tú la dirección del banco en lugar de pulsar.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Marca, dominios e IPs ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const HOMO = 'https://novаbanca.es/acceso';   // the 1st "a" is Cyrillic U+0430
+let puny = 'xn--…';
+try { puny = new URL(HOMO).hostname; } catch (e) {}
+const opts = ['✅ Legítimo: lleva a novabanca.es', '🚩 Falso: es phishing'];
+const U = (u, ok, explain, hint) => ({q: `<span class="url">${esc(u)}</span>`, type: 'choice', options: opts, correct: ok ? 0 : 1, explain, hint});
+runLab('dominio-falso', [
+  U('https://novabanca.es/acceso', true, 'El dominio es exactamente <b>novabanca.es</b>. Legítimo.'),
+  U('https://novabanca.es.acceso-clientes.com/login', false, 'El dominio real es <b>acceso-clientes.com</b>. «novabanca.es» es solo un subdominio que el atacante se ha inventado delante.', 'Mira qué hay justo antes de la primera barra: ¿en qué termina?'),
+  U('https://n0vabanca.es/acceso', false, 'Es <b>n0vabanca.es</b>, con un cero en lugar de la «o». Typosquatting clásico.'),
+  U('https://clientes.novabanca.es/', true, 'Termina en <b>novabanca.es</b>: «clientes» es un subdominio del propio banco. Legítimo.', 'Lo que va a la izquierda de novabanca.es lo controla el banco.'),
+  U('https://novabanca-es.com/verificar', false, 'Es <b>novabanca-es.com</b>, un dominio distinto registrado por cualquiera. El guion no es un punto.'),
+  U('https://novabanca.es@203.0.113.7/acceso', false, 'Todo lo que va antes de la <b>@</b> es un «usuario» que el navegador ignora. El destino real es la IP <b>203.0.113.7</b>.', 'En una URL, ¿qué significa la @?'),
+  U(HOMO, false, `Parece idéntico, pero la primera «a» es una letra <b>cirílica</b>. El navegador lo ve como <b>${esc(puny)}</b>: un ataque homógrafo. Por eso conviene escribir la dirección a mano o usar el marcador.`, 'Cópialo y pégalo en la barra del navegador, o en un editor de texto que muestre los caracteres.'),
+  U('https://www.novabanca.es/ayuda', true, '<b>www.novabanca.es</b>: el subdominio www es del propio banco. Legítimo.'),
+], 'N4{lee_el_dominio_de_derecha_a_izquierda}');
+</script>
+</body>
+</html>

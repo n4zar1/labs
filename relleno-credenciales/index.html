@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relleno de credenciales · Labs N4zar1</title>
+<meta name="description" content="Reto de detección: analiza el registro de accesos de una tienda online ficticia y descubre un ataque de credential stuffing.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🔓 Relleno de credenciales</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «Tu contraseña está a la venta».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Eres analista en <b>tienda-ficticia.lab</b>. Esta noche ha saltado una alerta por un pico de inicios de sesión fallidos. Debajo tienes el registro de <code>POST /login</code> de esa franja.</p>
+    <p><b>Tu misión:</b> confirma si es un ataque, identifica la herramienta y descubre qué cuentas han caído para bloquearlas.</p>
+  </div>
+
+  <div class="evidence" id="ev">
+    <div class="hd"><span>auth.log · POST /login · 14/10/2026</span>
+      <span class="tools">
+        <select id="fR" aria-label="Filtrar por resultado"><option value="">Todos</option><option value="OK">Solo OK</option><option value="FAIL">Solo FAIL</option></select>
+        <input id="fQ" placeholder="Buscar (IP, correo, agente…)" aria-label="Buscar">
+        <span class="count"></span>
+      </span>
+    </div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Defensas que lo frenan: detectar muchos correos distintos fallando con el mismo agente, limitar intentos por IP y por huella, comprobar contraseñas contra listas de filtradas al registrarse, y sobre todo verificación en dos pasos o passkeys. Y a los clientes afectados: forzar el cambio de contraseña y avisarles.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, correos e IPs ficticios (rangos de documentación). Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const R = n => { const x = Math.sin(n * 57.31) * 43758.5453; return x - Math.floor(x); };
+const p2 = n => String(n).padStart(2, '0');
+const at = s => `${p2(Math.floor(s / 3600))}:${p2(Math.floor(s / 60) % 60)}:${p2(s % 60)}`;
+const BOT = 'python-requests/2.31.0';
+const UAS = ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_5) Safari', 'Mozilla/5.0 (Windows NT 10.0) Chrome/129', 'Mozilla/5.0 (Linux; Android 15) Chrome/129', 'Mozilla/5.0 (Macintosh) Firefox/131'];
+const first = ['ana', 'pablo', 'marta', 'jorge', 'lucia', 'david', 'sara', 'ivan', 'elena', 'raul', 'nuria', 'alex', 'paula', 'hugo', 'irene', 'mario', 'laura', 'sergio', 'clara', 'diego'];
+const last = ['g', 'ruiz', 'lopez', 'm84', 'ortega', 'vidal', 'ferrer', 'santos', 'gil', 'mora'];
+const doms = ['correo-a.lab', 'correo-b.lab', 'correo-c.lab'];
+const rows = [];
+// legit customers: a few typos, then success, from home IPs with real browsers
+const legit = [[H(1, 2, 11), 'ana.ruiz@correo-a.lab', 1], [H(1, 9, 40), 'pablo.gil@correo-c.lab', 0], [H(1, 31, 5), 'marta.lopez@correo-b.lab', 2], [H(2, 4, 58), 'hugo.santos@correo-a.lab', 0]];
+function H(h, m, s) { return h * 3600 + m * 60 + s; }
+legit.forEach(([s, mail, typos], k) => {
+  const ip = `198.51.100.${20 + k * 7}`, ua = UAS[k % UAS.length];
+  for (let i = 0; i < typos; i++) rows.push([at(s + i * 9), ip, mail, 'FAIL', ua]);
+  rows.push([at(s + typos * 9 + 6), ip, mail, 'OK', ua]);
+});
+// the bot: every email tried ONCE, many rotating IPs, same agent, ~1 attempt/sec
+let s = H(1, 40, 0), k = 0;
+const hits = {14: 'lucia.m84@correo-b.lab', 37: 'j.ortega@correo-a.lab', 52: 'tu.nombre84@correo.n4zar1.lab'};
+for (let i = 0; i < 70; i++) {
+  const mail = hits[i] || `${first[i % 20]}.${last[(i * 7) % 10]}${i % 3 ? '' : i}@${doms[i % 3]}`;
+  const ip = `203.0.113.${10 + Math.floor(R(i) * 200)}`;
+  rows.push([at(s), ip, mail, hits[i] ? 'OK' : 'FAIL', BOT]);
+  s += 1 + Math.floor(R(i + 100) * 2); k++;
+}
+rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+makeTable({
+  el: document.getElementById('ev'),
+  cols: ['Hora', 'IP', 'Correo', 'Resultado', 'User-Agent'],
+  rows,
+  cls: r => r[3] === 'OK' ? 's' : 'f',
+  filters: [
+    {el: document.getElementById('fR'), test: (r, v) => !v || r[3] === v},
+    {el: document.getElementById('fQ'), test: (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase())},
+  ],
+});
+
+runLab('relleno-credenciales', [
+  {q: '¿Qué User-Agent usa la herramienta del atacante?', type: 'text', ph: 'Nombre del agente',
+   accept: a => a.includes('python-requests'),
+   hint: 'Los clientes de verdad usan navegadores (Mozilla/5.0…). ¿Qué agente se repite en casi todos los fallos?',
+   explain: 'python-requests/2.31.0: un script, no una persona. Los atacantes más cuidadosos lo falsifican, pero aquí no se han molestado.'},
+  {q: '¿Por qué esto es relleno de credenciales y no fuerza bruta?', type: 'choice',
+   options: ['Porque usa muchas IPs distintas', 'Porque cada correo se prueba una sola vez, con una contraseña concreta', 'Porque es de madrugada', 'Porque algunos intentos funcionan'], correct: 1,
+   explain: 'La fuerza bruta machaca una cuenta con miles de contraseñas. Aquí cada correo aparece una vez: el bot prueba la pareja correo:contraseña que ya funcionó en otra web filtrada. Las IPs rotativas solo sirven para esquivar los límites por IP.'},
+  {q: '¿Cuántas cuentas consiguió el bot?', type: 'text', ph: 'Número',
+   accept: ['3', 'tres'],
+   hint: 'Filtra por «Solo OK» y descarta los inicios de clientes reales (navegadores).',
+   explain: 'Tres: lucia.m84, j.ortega y tu.nombre84. Los otros OK son clientes legítimos desde navegadores.'},
+  {q: 'Una de las cuentas comprometidas es tu.nombre84. ¿A qué hora entró el bot? (hh:mm:ss)', type: 'text', ph: 'hh:mm:ss',
+   accept: a => { const want = rows.find(r => r[2].startsWith('tu.nombre84'))[0]; return a.replace(/\s/g, '') === want; },
+   hint: 'Busca «tu.nombre84» en el buscador de la tabla.',
+   explain: 'Esa es la hora a partir de la cual hay que revisar qué hizo el atacante en la cuenta: pedidos, cambio de dirección de envío, tarjetas guardadas…'},
+  {q: '¿Qué medida habría dejado fuera al bot aunque la contraseña fuera correcta?', type: 'choice',
+   options: ['Un captcha en la página de inicio', 'Bloquear las IPs del atacante', 'Verificación en dos pasos (o passkeys)', 'Obligar a contraseñas de 12 caracteres'], correct: 2,
+   explain: 'La verificación en dos pasos. Captcha y bloqueos por IP ayudan, pero se esquivan con granjas de resolución y proxies. Y una contraseña larga no sirve si es la misma que se filtró en otra web.'},
+], 'N4{una_contrasena_distinta_por_web}');
+</script>
+</body>
+</html>

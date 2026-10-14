@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Quién ha entrado en el PC? · Labs N4zar1</title>
+<meta name="description" content="Reto de análisis forense: investiga el registro de seguridad de un Windows comprometido (eventos 4625, 4624, 4720, 4732).">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🪟 ¿Quién ha entrado en el PC?</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Alguien ha entrado en tu PC? Compruébalo con 3 comandos».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> El equipo <code>PC-OFICINA</code> (usuario <code>carlos</code>) se quedó encendido la noche del 12 al 13 de octubre con el escritorio remoto abierto. Por la mañana hay un usuario nuevo que nadie reconoce.</p>
+    <p><b>Tu misión:</b> reconstruye qué pasó a partir del registro de seguridad. Chuleta: <b>4625</b> inicio fallido · <b>4624</b> inicio correcto · <b>4634</b> cierre de sesión · <b>4720</b> cuenta creada · <b>4732</b> miembro añadido a un grupo. Tipos de inicio: <b>2</b> en el teclado, <b>3</b> red, <b>10</b> escritorio remoto.</p>
+  </div>
+
+  <div class="evidence" id="ev">
+    <div class="hd"><span>Visor de eventos · Seguridad · PC-OFICINA</span>
+      <span class="tools">
+        <select id="fId" aria-label="Filtrar por ID"><option value="">Todos los ID</option><option>4625</option><option>4624</option><option>4634</option><option>4720</option><option>4732</option></select>
+        <input id="fQ" placeholder="Buscar (IP, usuario…)" aria-label="Buscar">
+        <span class="count"></span>
+      </span>
+    </div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Respuesta a incidentes: aislar el equipo de la red, eliminar <code>soporte_tmp</code>, cambiar todas las contraseñas, cerrar el escritorio remoto a Internet (o ponerlo tras VPN con doble factor) y exportar el registro como evidencia.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Equipo, usuarios e IPs ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+// ---- build the fictional Security log (deterministic) ----
+const R = n => { const x = Math.sin(n * 91.17) * 43758.5453; return x - Math.floor(x); };
+const ts = s => { const d = new Date(Date.UTC(2026, 9, 12, 0, 0, 0) + s * 1000); const p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`; };
+const H = (h, m, s = 0) => h * 3600 + m * 60 + s;
+const ev = [];
+const add = (t, id, user, type, ip, extra) => ev.push({t, row: [ts(t), id, user, type, ip, extra]});
+// normal evening use
+add(H(21, 58, 4), '4624', 'carlos', '2', '-', 'Inicio interactivo');
+add(H(22, 31, 50), '4625', 'carlos', '2', '-', 'Contraseña incorrecta');
+add(H(22, 31, 58), '4624', 'carlos', '2', '-', 'Inicio interactivo');
+add(H(23, 40, 12), '4624', 'carlos', '3', '192.168.56.10', 'NAS: copia de seguridad');
+add(H(23, 52, 30), '4634', 'carlos', '3', '192.168.56.10', 'Fin copia');
+add(H(24 + 0, 15, 0), '4634', 'carlos', '2', '-', 'Bloqueo de pantalla');
+// brute force over RDP
+const users = ['administrador', 'admin', 'carlos', 'usuario', 'administrador', 'carlos', 'soporte', 'admin', 'carlos', 'test'];
+let t = H(24 + 2, 51, 3);
+for (let i = 0; i < 28; i++) { add(t, '4625', users[i % users.length], '10', '192.168.56.23', 'Usuario o contraseña incorrectos'); t += 25 + Math.floor(R(i) * 30); }
+// a second, unrelated noisy source (a printer scanning) as a decoy
+add(H(24 + 3, 2, 40), '4625', 'scanner', '3', '192.168.56.40', 'Usuario desconocido');
+add(H(24 + 3, 9, 11), '4625', 'scanner', '3', '192.168.56.40', 'Usuario desconocido');
+// break-in + persistence
+add(H(24 + 3, 14, 37), '4624', 'carlos', '10', '192.168.56.23', 'Inicio remoto (RDP)');
+add(H(24 + 3, 16, 2), '4720', 'carlos', '-', '-', 'Cuenta creada: soporte_tmp');
+add(H(24 + 3, 16, 20), '4732', 'carlos', '-', '-', 'soporte_tmp añadido a Administradores');
+add(H(24 + 3, 21, 45), '4634', 'carlos', '10', '192.168.56.23', 'Cierre de sesión');
+// morning
+add(H(24 + 7, 48, 10), '4624', 'carlos', '2', '-', 'Inicio interactivo');
+ev.sort((a, b) => b.t - a.t);   // newest first, like the Event Viewer
+
+makeTable({
+  el: document.getElementById('ev'),
+  cols: ['Fecha y hora', 'ID', 'Usuario', 'Tipo', 'IP de origen', 'Detalle'],
+  rows: ev.map(e => e.row),
+  cls: r => r[1] === '4625' ? 'f' : (r[1] === '4720' || r[1] === '4732') ? 'w' : '',
+  filters: [
+    {el: document.getElementById('fId'), test: (r, v) => !v || r[1] === v},
+    {el: document.getElementById('fQ'), test: (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase())},
+  ],
+});
+
+runLab('quien-ha-entrado', [
+  {q: '¿Desde qué IP se lanzó el ataque de fuerza bruta?', type: 'text', ph: '192.168.x.x',
+   accept: ['192.168.56.23'],
+   hint: 'Filtra por el ID <b>4625</b>. ¿Qué IP se repite decenas de veces?',
+   explain: '192.168.56.23: 28 intentos fallidos en unos 20 minutos, probando varios usuarios. La 192.168.56.40 solo falla dos veces con «scanner»: es ruido (una impresora mal configurada), no el atacante.'},
+  {q: '¿A qué hora consiguió entrar? (hh:mm)', type: 'text', ph: 'hh:mm',
+   accept: a => a.replace(/[^0-9]/g, '').startsWith('0314') || a.replace(/[^0-9]/g, '') === '314',
+   hint: 'Busca un <b>4624</b> (inicio correcto) desde esa misma IP.',
+   explain: 'A las 03:14:37 del 13/10: un 4624 desde 192.168.56.23 justo después de la ráfaga de fallos. Adivinó la contraseña de carlos.'},
+  {q: '¿Por qué vía entró? (número de tipo de inicio de sesión)', type: 'text', ph: 'Número',
+   accept: ['10'],
+   hint: 'Mira la columna «Tipo» del inicio correcto.',
+   explain: 'Tipo 10: escritorio remoto (RDP). El servicio expuesto fue la puerta de entrada.'},
+  {q: '¿Qué cuenta dejó como puerta trasera?', type: 'text', ph: 'Nombre de la cuenta',
+   accept: ['soporte_tmp', 'soporte tmp'],
+   hint: 'Eventos <b>4720</b> y <b>4732</b>.',
+   explain: 'Creó soporte_tmp y la metió en Administradores. Aunque carlos cambie su contraseña, el intruso puede volver con esa cuenta.'},
+  {q: '¿Cuál fue el inicio de sesión de las 23:40 desde 192.168.56.10?', type: 'choice',
+   options: ['Otro intento del atacante', 'La copia de seguridad del NAS: actividad legítima', 'El atacante creando la cuenta'], correct: 1,
+   explain: 'Es legítimo: el NAS de la oficina hace la copia por red (tipo 3) antes del ataque. Distinguir lo normal de lo malicioso es la mitad del trabajo de un analista.'},
+], 'N4{4625_4624_4720_te_lo_cuentan_todo}');
+</script>
+</body>
+</html>
