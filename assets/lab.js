@@ -5,6 +5,7 @@ const LABS = [
   {id: 'quien-ha-entrado', ic: '🪟', title: '¿Quién ha entrado en el PC?', desc: 'Investiga el registro de seguridad de un Windows comprometido: el ataque, la entrada y la puerta trasera.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Alguien ha entrado en tu PC?'},
   {id: 'relleno-credenciales', ic: '🔓', title: 'Relleno de credenciales', desc: 'El registro de accesos de una tienda online muestra un ataque automatizado. Descubre qué cuentas cayeron.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu contraseña está a la venta'},
   {id: 'engana-la-ia', ic: '🤖', title: 'Engaña a la IA', desc: 'Consigue que la IA de compras de una empresa te adjudique un contrato con texto invisible. Después, caza las órdenes ocultas en cinco correos.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Conseguí un contrato millonario engañando a su IA'},
+  {id: 'red-gemela', ic: '🛜', title: 'Encuentra la red gemela', desc: 'Un Wi-Fi gratis de aeropuerto con trampa: encuentra la antena gemela, cuenta las contraseñas robadas por su portal falso y descubre qué tráfico vio el atacante.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Este Wi-Fi gratis del aeropuerto lo creé yo'},
 ];
 
 const store = {

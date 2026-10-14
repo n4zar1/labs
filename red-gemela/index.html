@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encuentra la red gemela · Labs N4zar1</title>
+<meta name="description" content="Reto de Wi-Fi: encuentra el punto de acceso gemelo (evil twin) en el escaneo de redes de un aeropuerto ficticio, analiza su portal falso y el tráfico que capturó.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🛜 Encuentra la red gemela</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «Este Wi-Fi gratis del aeropuerto lo creé yo».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Varios pasajeros de la <b>terminal 4</b> de un aeropuerto ficticio denuncian que les han robado cuentas después de conectarse al Wi-Fi gratuito <code>Aeropuerto_WiFi_Gratis</code>. Seguridad te pasa tres evidencias: un escaneo de las redes de la zona, el registro del portal que encontraron en un portátil abandonado en la puerta B12 y su captura de tráfico.</p>
+    <p><b>Tu misión:</b> encuentra la red gemela, cuenta cuántas cuentas cayeron y averigua qué pudo ver el atacante. Chuleta: el <b>BSSID</b> es el identificador único de cada antena. Sus tres primeros bytes indican el fabricante, y si el segundo carácter es <b>2, 6, A o E</b>, la dirección es «local»: no la ha asignado ningún fabricante, sino un programa.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Escaneo de redes · Terminal 4 · 12:50</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (nombre, BSSID…)" aria-label="Buscar en el escaneo"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Registro del portal (portátil de la puerta B12)</h3>
+      <span class="tools"><select id="q2" aria-label="Filtrar por petición"><option value="">Todas las peticiones</option><option>GET</option><option>POST</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Tráfico que pasó por el portátil</h3>
+      <span class="tools"><select id="q3" aria-label="Filtrar por protocolo"><option value="">Todo</option><option>HTTP</option><option>HTTPS</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Respuesta a incidentes: retirar el portátil y conservarlo como evidencia, avisar a los afectados para que cambien su contraseña y activen la verificación en dos pasos, y vigilar en el aeropuerto la aparición de antenas que no sean las suyas con el nombre oficial (eso es lo que hace un sistema de detección de intrusiones inalámbricas, o WIDS).</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Aeropuerto, redes, personas y direcciones ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = (id, cols) => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Nombre (SSID)', 'BSSID', 'Canal', 'Señal', 'Seguridad', 'Visto por primera vez'],
+  rows: [
+    ['Aeropuerto_WiFi_Gratis', 'A4:2B:8C:10:7E:01', '1', '−67 dBm', 'Abierta', '05:58'],
+    ['Aeropuerto_WiFi_Gratis', 'A4:2B:8C:10:7E:02', '11', '−71 dBm', 'Abierta', '05:58'],
+    ['Aeropuerto_WiFi_Gratis', '3E:91:0D:5C:22:9A', '1', '−31 dBm', 'Abierta', '12:46'],
+    ['Cafeteria_T4', 'F0:9F:C2:33:4A:B8', '6', '−72 dBm', 'WPA2', '06:30'],
+    ['Puerta_B12_Staff', 'A4:2B:8C:10:9A:11', '6', '−64 dBm', 'WPA2-Empresa', '05:58'],
+    ['SalaVIP_T4', 'A4:2B:8C:10:9A:40', '11', '−78 dBm', 'WPA3', '05:58'],
+    ['iPhone de Marta', '6A:12:F4:8E:01:C3', '6', '−58 dBm', 'WPA2', '12:31'],
+    ['DIRECT-Impresora-Info', 'B8:27:EB:41:0C:9D', '11', '−80 dBm', 'WPA2', '05:58'],
+  ],
+  cls: r => r[0] === 'Aeropuerto_WiFi_Gratis' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Dispositivo', 'Petición', 'Ruta', 'Resultado', 'Detalle'],
+  rows: [
+    ['12:47:10', 'Android-5f21', 'GET', '/', '200', 'Portal mostrado'],
+    ['12:48:02', 'Android-5f21', 'POST', '/login', '302', 'correo=lucia.m***@correo.com · contraseña recibida'],
+    ['12:49:15', 'iPhone-0a3c', 'GET', '/', '200', 'Portal mostrado'],
+    ['12:51:40', 'iPhone-0a3c', 'POST', '/login', '302', 'correo=javi.r***@correo.com · contraseña recibida'],
+    ['12:53:05', 'Portatil-HP', 'GET', '/', '200', 'Portal mostrado'],
+    ['12:53:51', 'Portatil-HP', 'POST', '/login', '400', 'Contraseña vacía · rechazado'],
+    ['12:54:20', 'Portatil-HP', 'POST', '/login', '302', 'correo=ana.p***@correo.com · contraseña recibida'],
+    ['12:58:33', 'Galaxy-77e0', 'GET', '/', '200', 'Portal mostrado'],
+    ['13:02:12', 'iPad-1b9d', 'GET', '/', '200', 'Portal mostrado'],
+    ['13:02:58', 'iPad-1b9d', 'POST', '/login', '302', 'correo=m.ortega***@correo.com · contraseña recibida'],
+    ['13:06:41', 'Android-c402', 'GET', '/', '200', 'Portal mostrado'],
+    ['13:07:30', 'Android-c402', 'POST', '/login', '302', 'correo=pablo.s***@correo.com · contraseña recibida'],
+    ['13:09:02', 'iPhone-77aa', 'GET', '/', '200', 'Portal mostrado'],
+  ],
+  cls: r => r[2] === 'POST' ? (r[4] === '302' ? 'f' : 'w') : '',
+  filters: [{el: $('q2'), test: (r, v) => !v || r[2] === v}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Dispositivo', 'Protocolo', 'Destino', 'Lo que ve el atacante'],
+  rows: [
+    ['12:48:40', 'Android-5f21', 'HTTPS', 'correo-ejemplo.com', '🔒 cifrado (solo el nombre del destino)'],
+    ['12:50:02', 'iPhone-0a3c', 'HTTPS', 'banco-ejemplo.es', '🔒 cifrado (solo el nombre del destino)'],
+    ['12:52:18', 'iPhone-0a3c', 'HTTPS', 'videos-ejemplo.com', '🔒 cifrado (solo el nombre del destino)'],
+    ['12:55:47', 'Portatil-HP', 'HTTP', 'foro-viajeros-ejemplo.es', 'POST /entrar · usuario=ana_p · clave=Gaviota88'],
+    ['12:56:10', 'Portatil-HP', 'HTTPS', 'tienda-ejemplo.com', '🔒 cifrado (solo el nombre del destino)'],
+    ['13:03:30', 'iPad-1b9d', 'HTTP', 'noticias-ejemplo.es', 'GET /portada · lectura de noticias'],
+    ['13:08:05', 'Android-c402', 'HTTPS', 'red-social-ejemplo.com', '🔒 cifrado (solo el nombre del destino)'],
+  ],
+  cls: r => r[2] === 'HTTP' ? 'f' : '',
+  filters: [{el: $('q3'), test: (r, v) => !v || r[2] === v}],
+});
+
+const mac = a => a.toUpperCase().replace(/[^0-9A-F]/g, '');
+runLab('red-gemela', [
+  {q: '¿Cuál es el BSSID de la red gemela?', type: 'text', ph: 'XX:XX:XX:XX:XX:XX',
+   accept: a => mac(a) === '3E910D5C229A',
+   hint: 'Hay tres redes con el nombre oficial. Mira cuándo apareció cada una, su señal y su BSSID.',
+   explain: '<b>3E:91:0D:5C:22:9A</b>: apareció a las 12:46, con muchísima más señal que las antenas oficiales (−31 dBm: está a pocos metros) y su BSSID empieza por <b>3E</b>, una dirección «local» generada por software, no de un fabricante.'},
+  {q: '¿Y la red A4:2B:8C:10:7E:02, también con el nombre oficial?', type: 'choice',
+   options: ['Es otra red gemela del atacante', 'Es otra antena legítima del aeropuerto: mismo fabricante (A4:2B:8C) que las demás redes oficiales y está desde la apertura', 'Es el móvil de un pasajero compartiendo datos'], correct: 1,
+   explain: 'Las redes grandes usan muchas antenas con el mismo nombre; por eso «mismo nombre» no basta. Lo que delata a la gemela es la combinación: <b>fabricante distinto o dirección local, aparición repentina y señal anómala</b>.'},
+  {q: '¿Cuántas personas entregaron su contraseña en el portal falso?', type: 'text', ph: 'Número',
+   accept: a => a.replace(/[^0-9]/g, '') === '5',
+   hint: 'Filtra por POST. Cuenta solo las que el portal aceptó (302).',
+   explain: '<b>5</b>: lucia.m, javi.r, ana.p, m.ortega y pablo.s. El POST de las 12:53:51 fue rechazado (contraseña vacía) y quien solo hizo GET vio el portal pero no escribió nada.'},
+  {q: '¿Qué contraseña viajó en claro por el tráfico capturado?', type: 'text', ph: 'Contraseña',
+   accept: ['Gaviota88'],
+   hint: 'Filtra por HTTP.',
+   explain: '<b>Gaviota88</b>, en un foro que aún no usa HTTPS. Y es la misma persona (ana.p) que cayó en el portal: si repite contraseña, el atacante ya tiene dos pistas.'},
+  {q: 'Cuando la víctima entró en banco-ejemplo.es por HTTPS, ¿qué pudo ver el atacante?', type: 'choice',
+   options: ['Su usuario, su contraseña y sus movimientos', 'Solo que se conectó a banco-ejemplo.es, no lo que hizo dentro', 'Nada en absoluto'], correct: 1,
+   explain: 'HTTPS cifra el contenido, pero el nombre del destino sigue viéndose. Por eso el robo de contraseñas en este ataque viene del <b>portal falso</b> y de las webs <b>sin HTTPS</b>, no de romper el cifrado.'},
+  {q: '¿Cuál es la mejor defensa para un pasajero?', type: 'choice',
+   options: ['Conectarse solo a redes que tengan exactamente el nombre oficial', 'Usar los datos móviles y no escribir nunca una contraseña en un portal de Wi-Fi', 'Activar el modo avión al pasar el control de seguridad'], correct: 1,
+   wrong: '✗ No: la red gemela tiene exactamente el nombre oficial. Ese es justo el truco.',
+   explain: 'El nombre lo puede copiar cualquiera. Con datos móviles no pasas por el portátil del atacante, y un Wi-Fi legítimo nunca necesita la contraseña de tu correo.'},
+], 'N4{mismo_nombre_distinto_bssid}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
