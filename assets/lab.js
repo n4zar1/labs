@@ -10,6 +10,15 @@ const store = {
   get(k) { try { return JSON.parse(localStorage.getItem('n4labs:' + k)); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem('n4labs:' + k, JSON.stringify(v)); } catch (e) {} },
 };
+// Anonymous, cookie-free events (GoatCounter). The script loads async, so retry briefly.
+function track(path, title) {
+  let n = 0;
+  const send = () => {
+    if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({path, title: title || path, event: true});
+    else if (n++ < 20) setTimeout(send, 500);
+  };
+  send();
+}
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[“”"'`]/g, '').replace(/\s+/g, ' ').trim();
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -31,6 +40,7 @@ function renderCatalog(el) {
 function runLab(id, tasks, flag) {
   const box = document.getElementById('tasks');
   const state = store.get('state:' + id) || {};
+  track(`lab/${id}/abierto`, `Lab abierto: ${id}`);
   box.innerHTML = tasks.map((t, i) => `
     <div class="task" id="t${i}">
       <div class="q"><span class="n">${String(i + 1).padStart(2, '0')}</span><span>${t.q}</span></div>
@@ -48,7 +58,10 @@ function runLab(id, tasks, flag) {
   const check = () => {
     const all = tasks.every((_, i) => state[i]);
     document.getElementById('win').classList.toggle('on', all);
-    if (all) { store.set('done:' + id, true); document.getElementById('flag').textContent = flag; }
+    if (all) {
+      if (!store.get('done:' + id)) track(`lab/${id}/bandera`, `Bandera conseguida: ${id}`);
+      store.set('done:' + id, true); document.getElementById('flag').textContent = flag;
+    }
   };
   tasks.forEach((t, i) => { if (state[i]) { mark(i, true); fillSolved(i); } });
 
@@ -72,11 +85,14 @@ function runLab(id, tasks, flag) {
       if (!a) { fb.textContent = 'Escribe una respuesta.'; fb.className = 'fb bad'; return; }
       ok = typeof t.accept === 'function' ? t.accept(a) : t.accept.map(norm).includes(a);
     }
+    if (ok && !state[i]) track(`lab/${id}/pregunta-${i + 1}`, `Pregunta ${i + 1} acertada: ${id}`);
+    if (!ok) track(`lab/${id}/fallo-${i + 1}`, `Fallo en la pregunta ${i + 1}: ${id}`);
     if (ok) { state[i] = true; state['v' + i] = raw; store.set('state:' + id, state); fb.textContent = '✓ Correcto'; fb.className = 'fb good'; mark(i, true); }
     else { fb.textContent = t.wrong || '✗ No es eso. Revisa la evidencia (o abre la pista).'; fb.className = 'fb bad'; mark(i, false); }
     check();
   });
   document.getElementById('reset')?.addEventListener('click', () => {
+    track(`lab/${id}/reinicio`, `Reto reiniciado: ${id}`);
     store.set('state:' + id, {}); store.set('done:' + id, false); location.reload();
   });
   check();
