@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encuentra la cámara vulnerable · Labs N4zar1</title>
+<meta name="description" content="Reto de cámaras IP expuestas: lee los resultados de un buscador de dispositivos tipo Shodan, encuentra la cámara con acceso de fábrica, el puerto que la expone y al intruso en su registro.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>📷 Encuentra la cámara vulnerable</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «Tu cámara puede salir en este buscador».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Una familia de un pueblo ficticio, <b>Villaserena</b>, nota que su cámara del salón se mueve sola de madrugada. Te pasan tres evidencias: los resultados de un buscador de dispositivos (como Shodan) para su proveedor de internet, la tabla de puertos de su router y el registro de accesos de la cámara.</p>
+    <p><b>Tu misión:</b> encuentra qué cámara está abierta a cualquiera, qué puerto del router la expone, quién entró y cómo cerrar el agujero. Chuleta: un <b>banner</b> es lo que responde un aparato cuando alguien llama a uno de sus puertos. <code>401 Unauthorized</code> significa «pide contraseña»; <code>200 OK</code> significa «aquí tienes lo que pedías».</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Buscador de dispositivos · «camera» · proveedor VillaNet</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, puerto, texto del banner…)" aria-label="Buscar en los resultados"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Router de la familia · Redirección de puertos</h3>
+      <span class="tools"><select id="q2" aria-label="Filtrar por origen de la regla"><option value="">Todas las reglas</option><option>Manual</option><option>UPnP</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Registro de accesos de CAM-SALÓN</h3>
+      <span class="tools"><select id="q3" aria-label="Filtrar por resultado"><option value="">Todo</option><option>OK</option><option>FALLO</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Respuesta a incidentes: borrar la regla de UPnP y desactivar UPnP en el router, cambiar la contraseña de la cámara por una larga y única, actualizar su firmware, revisar las grabaciones que se descargaron y usar solo la app oficial (que conecta a través de la nube del fabricante, sin abrir puertos).</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Pueblo, proveedor, IP (rangos de documentación), familia y cámaras ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['IP', 'Puerto', 'Ciudad', 'Banner (resumen)'],
+  rows: [
+    ['203.0.113.12', '443', 'Villaserena', 'HTTP/1.1 200 OK · <title>Tienda Ferretería Ruiz</title> · Server: nginx'],
+    ['203.0.113.27', '554', 'Villaserena', 'RTSP/1.0 401 Unauthorized · WWW-Authenticate: Digest realm="IP Camera"'],
+    ['203.0.113.31', '80', 'Villaserena', 'HTTP/1.1 401 Unauthorized · WWW-Authenticate: Basic realm="NVR-Garaje"'],
+    ['203.0.113.47', '8080', 'Villaserena', 'HTTP/1.1 200 OK · <title>IPCam Web 2.1</title> · GET /snapshot.jpg → 200 image/jpeg · firmware 2017-03'],
+    ['203.0.113.52', '8080', 'Villaserena', 'HTTP/1.1 302 Found · Location: /login · Server: GoAhead-Webs · firmware 2025-11'],
+    ['203.0.113.66', '21', 'Villaserena', '220 FTP Impresora-Oficina listo'],
+    ['203.0.113.80', '443', 'Villaserena', 'HTTP/1.1 200 OK · <title>Router VillaNet</title> · acceso remoto: desactivado'],
+    ['203.0.113.91', '81', 'Villaserena', 'HTTP/1.1 401 Unauthorized · WWW-Authenticate: Basic realm="DVR Tienda"'],
+  ],
+  cls: r => /snapshot|401|302/.test(r[3]) ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Puerto externo', 'Destino interno', 'Protocolo', 'Origen', 'Creada por', 'Fecha'],
+  rows: [
+    ['3074', '192.168.1.20:3074', 'UDP', 'UPnP', 'Consola-Salón', '2026-09-02'],
+    ['8080', '192.168.1.64:80', 'TCP', 'UPnP', 'IPCam-Salón', '2019-05-18'],
+    ['51413', '192.168.1.35:51413', 'TCP', 'UPnP', 'Portátil-Luis', '2026-10-01'],
+    ['22', '192.168.1.10:22', 'TCP', 'Manual', 'admin (router)', '2021-01-09'],
+  ],
+  cls: r => r[1].startsWith('192.168.1.64') ? 'f' : '',
+  filters: [{el: $('q2'), test: (r, v) => !v || r[3] === v}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Fecha y hora', 'Origen', 'Cliente', 'Usuario', 'Resultado'],
+  rows: [
+    ['15/10 19:02', 'Nube del fabricante', 'App oficial', 'familia', 'OK'],
+    ['15/10 21:47', 'Nube del fabricante', 'App oficial', 'familia', 'OK'],
+    ['16/10 03:09:41', '198.51.100.23', 'python-requests', 'root', 'FALLO'],
+    ['16/10 03:09:42', '198.51.100.23', 'python-requests', 'admin', 'FALLO'],
+    ['16/10 03:09:43', '198.51.100.23', 'python-requests', 'user', 'FALLO'],
+    ['16/10 03:09:44', '198.51.100.23', 'python-requests', 'admin', 'OK'],
+    ['16/10 03:12:05', '198.51.100.23', 'Navegador web', 'admin', 'OK'],
+    ['16/10 03:14:30', '198.51.100.23', 'Navegador web', 'admin', 'OK · descarga grabaciones 09/10–15/10'],
+    ['16/10 03:21:12', '198.51.100.23', 'Navegador web', 'admin', 'OK · movimiento PTZ'],
+    ['16/10 08:30', 'Nube del fabricante', 'App oficial', 'familia', 'OK'],
+  ],
+  cls: r => r[1] === '198.51.100.23' ? (r[4].startsWith('OK') ? 'f' : 'w') : '',
+  filters: [{el: $('q3'), test: (r, v) => !v || r[4].startsWith(v)}],
+});
+
+runLab('camara-vulnerable', [
+  {q: '¿Qué IP tiene una cámara que entrega imágenes sin pedir contraseña?', type: 'text', ph: 'IP',
+   accept: a => a.split(':')[0].replace(/[^0-9.]/g, '') === '203.0.113.47',
+   hint: 'Busca «snapshot» o fíjate en qué banners responden 200 en vez de 401.',
+   explain: '<b>203.0.113.47</b>: su banner dice <code>GET /snapshot.jpg → 200 image/jpeg</code>. Cualquiera que llame a ese puerto se lleva una foto. Además el firmware es de 2017: nadie la ha actualizado.'},
+  {q: 'Las cámaras que responden «401 Unauthorized», ¿están a salvo?', type: 'choice',
+   options: ['Sí: piden contraseña, así que nadie puede entrar', 'No necesariamente: piden contraseña, pero si sigue siendo la de fábrica cualquiera la adivina', 'No: el 401 significa que ya han sido hackeadas'], correct: 1,
+   explain: 'El 401 solo dice que hay una puerta con cerradura. Si la llave es <b>admin/admin</b> o la que viene en el manual, la puerta está abierta igualmente. Y aparecer en el buscador ya avisa a todo el mundo de que existe.'},
+  {q: '¿Qué puerto externo del router expone la cámara del salón?', type: 'text', ph: 'Número de puerto',
+   accept: a => a.replace(/[^0-9]/g, '') === '8080',
+   hint: 'La cámara del salón está en 192.168.1.64.',
+   explain: '<b>8080</b> → 192.168.1.64:80. Es justo el puerto que aparece en el buscador para 203.0.113.47.'},
+  {q: '¿Quién creó esa regla del router?', type: 'choice',
+   options: ['La familia, a mano, al instalar la cámara', 'La propia cámara, sola, mediante UPnP, en 2019', 'El atacante, después de entrar'], correct: 1,
+   explain: 'Con <b>UPnP</b> los aparatos piden al router que les abra puertos sin preguntar a nadie. La cámara se abrió a internet el día que se instaló (2019) y desde entonces nadie lo sabía.'},
+  {q: '¿Desde qué IP entró el intruso?', type: 'text', ph: 'IP',
+   accept: a => a.replace(/[^0-9.]/g, '') === '198.51.100.23',
+   hint: 'Filtra por OK y mira qué accesos no vienen de la app oficial.',
+   explain: '<b>198.51.100.23</b>. Primero un programa (<code>python-requests</code>) probó usuarios típicos de fábrica de madrugada; al acertar, entró con un navegador.'},
+  {q: '¿Cuántos intentos fallidos hizo antes de acertar?', type: 'text', ph: 'Número',
+   accept: a => a.replace(/[^0-9]/g, '') === '3',
+   hint: 'Filtra por FALLO.',
+   explain: '<b>3</b> (root, admin con otra contraseña y user) en tres segundos. Al cuarto acertó: usuario <b>admin</b> con la contraseña de fábrica. Ningún humano escribe tan rápido: es un ataque automatizado que prueba miles de cámaras así cada noche.'},
+  {q: '¿Qué cierra el agujero de verdad?', type: 'choice',
+   options: ['Cambiar el puerto 8080 por otro raro, como el 18080', 'Cambiar la contraseña de fábrica, actualizar la cámara, borrar la regla y desactivar UPnP, y usar solo la app oficial', 'Tapar la cámara con una pegatina por las noches'], correct: 1,
+   wrong: '✗ No: los buscadores como Shodan recorren todos los puertos, no solo los conocidos. Esconderla en otro puerto no la protege.',
+   explain: 'Una contraseña única y larga impide adivinarla; actualizar cierra fallos conocidos; y sin la regla del router la cámara deja de ser visible desde internet. La app oficial sigue funcionando porque conecta a través de la nube del fabricante.'},
+], 'N4{admin_admin_no_es_una_contrasena}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
