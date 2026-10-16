@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encuentra la app espía · Labs N4zar1</title>
+<meta name="description" content="Reto de stalkerware: revisa los ajustes de un Android infectado, encuentra la app espía oculta, cuándo y cómo la instalaron, qué permisos tiene y qué hacer sin ponerte en riesgo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>📱 Encuentra la app espía</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Te espían el móvil?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Lucía nota cosas raras desde hace una semana: su ex sabe dónde ha estado, cita frases de sus chats y el móvil se calienta en el bolsillo. Él tuvo su móvil un rato el jueves 8 de octubre por la noche, «para mirar una foto». Lucía te deja revisar tres pantallas de los Ajustes de su Android.</p>
+    <p><b>Tu misión:</b> encuentra la app espía, cuándo y cómo se instaló, qué permisos le dieron y qué debe hacer Lucía. Chuleta: una app espía (stalkerware) no viene de Google Play, se esconde con un nombre que parece del sistema, no tiene icono y pide permisos que le dejan leer la pantalla y las notificaciones.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Seguridad › Actividad reciente del dispositivo</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (fecha, texto…)" aria-label="Buscar en la actividad"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Apps › Ver todas las apps (incluidas las del sistema)</h3>
+      <span class="tools"><select id="q2" aria-label="Filtrar por origen"><option value="">Cualquier origen</option><option>Google Play</option><option>Preinstalada</option><option>Otro origen</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Apps › Acceso especial de aplicaciones</h3>
+      <span class="tools"><select id="q3" aria-label="Filtrar por permiso"><option value="">Todos los permisos</option><option>Accesibilidad</option><option>Acceso a notificaciones</option><option>Apps de administración del dispositivo</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Respuesta segura: antes de tocar nada, Lucía pide ayuda (017, la línea de INCIBE, gratuita y confidencial) y guarda pruebas (capturas de estas pantallas). Con un plan: quita el permiso de administración, desinstala «Servicio del sistema», activa Play Protect, cambia el bloqueo de pantalla y las contraseñas de sus cuentas (desde otro dispositivo) y revisa las sesiones abiertas de WhatsApp y Google.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Persona, móvil, apps y fechas ficticios; «Servicio del sistema» no es una app real. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Fecha y hora', 'Evento'],
+  rows: [
+    ['07/10 18:02', 'Play Protect: análisis completado · no se encontraron apps dañinas'],
+    ['08/10 09:14', 'Actualización de Google Play instalada'],
+    ['08/10 22:39', 'Dispositivo desbloqueado (patrón)'],
+    ['08/10 22:40', 'Play Protect: «Analizar apps con Play Protect» desactivado'],
+    ['08/10 22:41', 'Chrome: permiso «Instalar apps desconocidas» concedido'],
+    ['08/10 22:41', 'Chrome: descarga completada · sistema.apk (4,8 MB)'],
+    ['08/10 22:42', 'App instalada: Servicio del sistema'],
+    ['08/10 22:43', 'Permiso concedido: Accesibilidad → Servicio del sistema'],
+    ['08/10 22:43', 'Permiso concedido: Acceso a notificaciones → Servicio del sistema'],
+    ['08/10 22:44', 'Permiso concedido: Administración del dispositivo → Servicio del sistema'],
+    ['08/10 22:44', 'Icono de aplicación ocultado: Servicio del sistema'],
+    ['09/10 07:30', 'Alarma'],
+    ['12/10 11:05', 'Play Protect: no se puede analizar · el análisis está desactivado'],
+  ],
+  cls: r => /Play Protect/.test(r[1]) && /desactivado/.test(r[1]) ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['App', 'Paquete', 'Origen', 'Icono en inicio', 'Datos en segundo plano (7 días)'],
+  rows: [
+    ['WhatsApp', 'com.whatsapp', 'Google Play', 'Sí', '210 MB'],
+    ['Instagram', 'com.instagram.android', 'Google Play', 'Sí', '380 MB'],
+    ['Servicios de Google Play', 'com.google.android.gms', 'Preinstalada', 'No (sistema)', '96 MB'],
+    ['Servicio del sistema', 'com.sys.update.service', 'Otro origen (Chrome)', 'No', '1,4 GB'],
+    ['Mi Banco', 'es.mibanco.app', 'Google Play', 'Sí', '4 MB'],
+    ['Ajustes', 'com.android.settings', 'Preinstalada', 'Sí', '1 MB'],
+    ['Spotify', 'com.spotify.music', 'Google Play', 'Sí', '520 MB'],
+    ['TalkBack', 'com.google.android.marvin.talkback', 'Preinstalada', 'No (sistema)', '0 MB'],
+  ],
+  cls: r => /Otro origen/.test(r[2]) ? 'w' : '',
+  filters: [{el: $('q2'), test: (r, v) => !v || r[2].startsWith(v)}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Permiso especial', 'App', 'Estado'],
+  rows: [
+    ['Accesibilidad', 'TalkBack', 'Desactivado'],
+    ['Accesibilidad', 'Servicio del sistema', 'Activado'],
+    ['Acceso a notificaciones', 'Android Auto', 'Activado'],
+    ['Acceso a notificaciones', 'Servicio del sistema', 'Activado'],
+    ['Acceso a notificaciones', 'Pulsera Fit', 'Activado'],
+    ['Apps de administración del dispositivo', 'Encontrar mi dispositivo', 'Activado'],
+    ['Apps de administración del dispositivo', 'Servicio del sistema', 'Activado'],
+  ],
+  cls: () => '',
+  filters: [{el: $('q3'), test: (r, v) => !v || r[0] === v}],
+});
+
+runLab('app-espia', [
+  {q: '¿Cómo se llama la app espía?', type: 'text', ph: 'Nombre de la app',
+   accept: a => norm(a).includes('servicio del sistema') || norm(a).includes('com.sys.update'),
+   hint: 'Busca una app que no venga de Google Play ni venga preinstalada.',
+   explain: '<b>Servicio del sistema</b> (<code>com.sys.update.service</code>). El nombre imita a una app del sistema para que nadie la toque, pero se instaló desde Chrome, no tiene icono y es la que más datos envía.'},
+  {q: '¿Qué hicieron justo antes de instalarla, para que el móvil no avisara?', type: 'choice',
+   options: ['Reiniciar el móvil', 'Desactivar Play Protect', 'Apagar el Wi-Fi'], correct: 1,
+   explain: 'A las 22:40 se desactivó <b>Play Protect</b>, el antivirus de Google que analiza las apps. Con él encendido, muchas apps espía se detectan y se bloquean. Si lo ves apagado y no fuiste tú, sospecha.'},
+  {q: '¿Cuántos minutos tuvo el móvil desbloqueado el atacante para instalarlo todo (desde el desbloqueo hasta ocultar el icono)?', type: 'text', ph: 'Minutos',
+   accept: a => a.replace(/[^0-9]/g, '') === '5',
+   hint: 'Mira la hora del desbloqueo y la del último evento del 08/10 por la noche.',
+   explain: '<b>5 minutos</b> (22:39 → 22:44). No hace falta ser un experto: estas apps se venden con instrucciones paso a paso. Por eso el bloqueo de pantalla es tu primera defensa.'},
+  {q: '¿Cuántos datos ha enviado en segundo plano en una semana?', type: 'text', ph: 'Cantidad (con unidad)',
+   accept: a => /1[.,]4\s*g/i.test(a.replace(/\s/g, '')),
+   hint: 'Pantalla 2, última columna.',
+   explain: '<b>1,4 GB</b>, más que Spotify o Instagram, sin que Lucía la haya abierto nunca: fotos, audios, ubicación y capturas de pantalla saliendo hacia el panel del espía. El móvil caliente y la batería que dura menos encajan con esto.'},
+  {q: '¿Qué permiso le deja leer los chats de WhatsApp aunque no tenga acceso a WhatsApp?', type: 'choice',
+   options: ['Apps de administración del dispositivo', 'Acceso a notificaciones (y Accesibilidad, que lee la pantalla)', 'Datos en segundo plano'], correct: 1,
+   explain: 'Cada mensaje que llega aparece en una notificación: con <b>Acceso a notificaciones</b> lo copia. Y con <b>Accesibilidad</b> «ve» todo lo que sale en la pantalla y lo que se teclea. Android Auto, Pulsera Fit o TalkBack son legítimos: fíjate en la app que no reconoces.'},
+  {q: '¿Qué permiso hay que quitar primero para poder desinstalarla?', type: 'choice',
+   options: ['Accesibilidad', 'Apps de administración del dispositivo', 'Acceso a notificaciones'], correct: 1,
+   explain: 'Una app con <b>administración del dispositivo</b> puede impedir que la desinstalen: el botón «Desinstalar» sale gris. Primero se le quita ese permiso y después se desinstala.'},
+  {q: 'Lucía cree que fue su ex. ¿Qué debería hacer primero?', type: 'choice',
+   options: ['Borrar la app ya mismo y escribirle para decirle que lo sabe', 'Pedir ayuda (017) y guardar pruebas antes de borrar nada', 'Restablecer el móvil de fábrica esta misma noche'], correct: 1,
+   wrong: '✗ Cuidado: si la app deja de enviar datos de golpe, quien la instaló se da cuenta. Si es alguien que ya la controla, eso puede ser peligroso, y además se pierden las pruebas.',
+   explain: 'Primero, <b>seguridad y pruebas</b>: el <b>017</b> (INCIBE, Tu Ayuda en Ciberseguridad) es gratuito y confidencial y te guía paso a paso. Con capturas de estas pantallas y un plan, ya se puede limpiar el móvil y denunciar si ella quiere.'},
+], 'N4{play_protect_apagado_y_no_fuiste_tu}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

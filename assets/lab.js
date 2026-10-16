@@ -7,6 +7,7 @@ const LABS = [
   {id: 'engana-la-ia', ic: '🤖', title: 'Engaña a la IA', desc: 'Consigue que la IA de compras de una empresa te adjudique un contrato con texto invisible. Después, caza las órdenes ocultas en cinco correos.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Conseguí un contrato millonario engañando a su IA'},
   {id: 'red-gemela', ic: '🛜', title: 'Encuentra la red gemela', desc: 'Un Wi-Fi gratis de aeropuerto con trampa: encuentra la antena gemela, cuenta las contraseñas robadas por su portal falso y descubre qué tráfico vio el atacante.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Este Wi-Fi gratis del aeropuerto lo creé yo'},
   {id: 'camara-vulnerable', ic: '📷', title: 'Encuentra la cámara vulnerable', desc: 'Un buscador de dispositivos tipo Shodan, el router de una familia y el registro de su cámara: encuentra la cámara abierta, el puerto que la expone y al intruso.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu cámara puede salir en este buscador'},
+  {id: 'app-espia', ic: '📱', title: 'Encuentra la app espía', desc: 'Un Android con una app espía oculta: revisa la actividad, las apps y los permisos especiales, encuentra cuándo y cómo la instalaron y qué debe hacer su dueña sin ponerse en riesgo.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Te espían el móvil?'},
 ];
 
 const store = {
