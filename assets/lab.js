@@ -8,7 +8,18 @@ const LABS = [
   {id: 'red-gemela', ic: '🛜', title: 'Encuentra la red gemela', desc: 'Un Wi-Fi gratis de aeropuerto con trampa: encuentra la antena gemela, cuenta las contraseñas robadas por su portal falso y descubre qué tráfico vio el atacante.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Este Wi-Fi gratis del aeropuerto lo creé yo'},
   {id: 'camara-vulnerable', ic: '📷', title: 'Encuentra la cámara vulnerable', desc: 'Un buscador de dispositivos tipo Shodan, el router de una familia y el registro de su cámara: encuentra la cámara abierta, el puerto que la expone y al intruso.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu cámara puede salir en este buscador'},
   {id: 'app-espia', ic: '📱', title: 'Encuentra la app espía', desc: 'Un Android con una app espía oculta: revisa la actividad, las apps y los permisos especiales, encuentra cuándo y cómo la instalaron y qué debe hacer su dueña sin ponerse en riesgo.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Te espían el móvil?'},
+  {id: 'kill-chain', ic: '⛓️', title: 'Ordena el ataque', desc: 'Nueve pistas desordenadas de un ataque de ransomware a una empresa ficticia: colócalas en las 7 fases de la Cyber Kill Chain y descubre dónde se podía haber cortado.', level: 'Fácil', lvl: 'easy', mins: 10, video: '¿Cómo se hackea una empresa?', pub: '2026-10-18T19:30:00+02:00'},
 ];
+
+// A lab with `pub` (ISO date) stays hidden until its video goes live; the page unlocks itself at that moment.
+const isLive = l => !l.pub || Date.now() >= Date.parse(l.pub);
+const LIVE = () => LABS.filter(isLive);
+function wakeAt(pub, fn) { const ms = Date.parse(pub) - Date.now(); if (ms > 0 && ms < 864e5) setTimeout(fn, ms + 1000); }
+// Opening an unpublished lab by its URL behaves as if it did not exist yet: back to the catalog.
+(() => {
+  const lab = LABS.find(l => location.pathname.includes('/' + l.id + '/'));
+  if (lab && !isLive(lab)) { document.documentElement.style.display = 'none'; location.replace('../index.html'); }
+})();
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem('n4labs:' + k)); } catch (e) { return null; } },
@@ -27,10 +38,12 @@ const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function renderCatalog(el) {
-  const solved = LABS.filter(l => store.get('done:' + l.id)).length;
-  document.getElementById('pcount').textContent = `${solved} de ${LABS.length} completados`;
-  document.getElementById('pbar').style.width = `${100 * solved / LABS.length}%`;
-  el.innerHTML = LABS.map(l => `
+  LABS.filter(l => !isLive(l)).forEach(l => wakeAt(l.pub, () => renderCatalog(el)));
+  const labs = LIVE();
+  const solved = labs.filter(l => store.get('done:' + l.id)).length;
+  document.getElementById('pcount').textContent = `${solved} de ${labs.length} completados`;
+  document.getElementById('pbar').style.width = `${100 * solved / labs.length}%`;
+  el.innerHTML = labs.map(l => `
     <a class="card" href="${l.id}/index.html">
       ${store.get('done:' + l.id) ? '<span class="done">✓ HECHO</span>' : ''}
       <span class="ic" aria-hidden="true">${l.ic}</span>

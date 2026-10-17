@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ordena el ataque · Labs N4zar1</title>
+<meta name="description" content="Reto de la Cyber Kill Chain: ordena las pistas de un ataque a una empresa ficticia en sus 7 fases y descubre en qué fase se podía haber cortado.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>⛓️ Ordena el ataque</h1>
+  <p class="lede">Fácil · ~10 min · Basado en el vídeo «¿Cómo se hackea una empresa?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> El lunes 19 por la mañana, los 24 ordenadores de Grupo Ébora S.L. amanecen con una pantalla roja: «Tus archivos están cifrados». El equipo de respuesta ha reunido nueve pistas de las últimas semanas, pero están desordenadas.</p>
+    <p><b>Tu misión:</b> coloca cada pista en su fase de la Cyber Kill Chain y descubre en qué momento se podía haber cortado el ataque. Las 7 fases: 1 Reconocimiento · 2 Preparación · 3 Entrega · 4 Explotación · 5 Instalación · 6 Comando y control · 7 Acciones sobre el objetivo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>Pistas reunidas por el equipo de respuesta</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar…" aria-label="Buscar en las pistas"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Orden correcto: C (reconocimiento) → G (preparación) → A (entrega) → E (explotación) → H (instalación) → B (comando y control) → F y D (acciones sobre el objetivo). Cada fase dejó una huella: quien las vigila puede cortar el ataque mucho antes de la pantalla roja.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, dominios y fechas ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const F = ["Reconocimiento", "Preparación", "Entrega", "Explotación", "Instalación", "Comando y control", "Acciones sobre el objetivo"];
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Pista', 'Fecha', 'Fuente', 'Qué se vio'],
+  rows: [
+    ['A', '13/10 09:12', 'Correo', 'Laura G. (Contabilidad) recibe «Factura pendiente · octubre» de facturas@ebora-pagos.com, un dominio registrado hace 5 días, con un Excel adjunto'],
+    ['B', '13/10 → 19/10', 'Cortafuegos', 'CONTA-PC07 contacta con el mismo servidor externo cada 60 segundos, día y noche'],
+    ['C', '29/09 – 02/10', 'Web y redes', 'Muchas visitas a ebora.es/equipo desde la misma IP extranjera; alguien consulta los perfiles de LinkedIn de la plantilla'],
+    ['D', '19/10 03:40', 'Todos los equipos', 'Los 24 ordenadores muestran una nota de rescate y los archivos están cifrados'],
+    ['E', '13/10 09:14', 'CONTA-PC07', 'Laura abre el adjunto y pulsa «Habilitar» en el aviso de seguridad; Excel lanza un proceso que no debería'],
+    ['F', '18/10 23:10', 'Servidor de ficheros', 'Salen 38 GB de datos de clientes y nóminas hacia Internet en dos horas'],
+    ['G', '05/10 – 08/10', 'Inteligencia de amenazas', 'Se registra el dominio ebora-pagos.com y aparece una plantilla de factura con el logo de un proveedor de Ébora'],
+    ['H', '13/10 09:16', 'CONTA-PC07', 'Se crea una tarea programada nueva, «OneDriveUpdate», que arranca un programa desconocido en cada inicio'],
+    ['I', '14/10 10:00', 'Calendario', 'Reunión de departamento sobre el cierre del trimestre'],
+  ],
+  cls: r => r[0] === 'D' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+runLab('kill-chain', [
+  {q: 'Pista C (visitas a la web y a LinkedIn de la plantilla). ¿Qué fase es?', type: 'choice', options: F, correct: 0,
+   explain: '<b>Reconocimiento.</b> Antes de atacar, se estudia a la víctima: quién trabaja allí, qué cargo tiene y cómo son sus correos. Información pública, sin tocar aún ningún equipo.'},
+  {q: 'Pista G (dominio parecido y factura falsa con el logo de un proveedor). ¿Qué fase es?', type: 'choice', options: F, correct: 1,
+   explain: '<b>Preparación (armamento).</b> El atacante fabrica la trampa a medida: un dominio que se parece al de un proveedor y un archivo que parece una factura normal.'},
+  {q: 'Pista A (el correo con el Excel llega a Contabilidad). ¿Qué fase es?', type: 'choice', options: F, correct: 2,
+   explain: '<b>Entrega.</b> La trampa llega a la víctima. Fíjate en el dominio: <code>ebora-pagos.com</code> se registró hace 5 días. Un filtro de correo o una persona atenta lo pueden parar aquí.'},
+  {q: 'Pista E (Laura pulsa «Habilitar» y Excel lanza un proceso). ¿Qué fase es?', type: 'choice', options: F, correct: 3,
+   explain: '<b>Explotación.</b> El código malicioso se ejecuta gracias a un fallo… humano, en este caso: un clic en el aviso. Un Excel que lanza otros programas es una alarma clásica para un analista.'},
+  {q: 'Pista H (tarea programada nueva que arranca en cada inicio). ¿Qué fase es?', type: 'choice', options: F, correct: 4,
+   explain: '<b>Instalación.</b> El atacante se asegura de no perder el acceso aunque reinicien el equipo. El nombre imita algo legítimo para pasar desapercibido.'},
+  {q: 'Pista B (el PC llama al mismo servidor cada 60 segundos). ¿Qué fase es?', type: 'choice', options: F, correct: 5,
+   explain: '<b>Comando y control.</b> El equipo infectado «llama a casa» a intervalos fijos para recibir órdenes. Ese ritmo tan regular, a todas horas, es justo lo que se busca al vigilar la red.'},
+  {q: '¿Qué dos pistas son «acciones sobre el objetivo»?', type: 'text', ph: 'Dos letras, p. ej. X y Z',
+   accept: a => (String(a).toUpperCase().match(/\b[A-I]\b/g) || []).sort().join('') === 'DF',
+   hint: 'Busca lo que el atacante quería conseguir al final: no una, sino dos cosas.',
+   explain: '<b>F y D.</b> Primero roba los datos (F) y después lo cifra todo (D): así puede amenazar con publicarlos si no le pagan. La pista I no tiene nada que ver: no todo lo que pasa en una empresa es un ataque.'},
+  {q: '¿Cuántos días pasaron entre la entrega del correo y la pantalla roja?', type: 'text', ph: 'Número de días',
+   accept: a => String(a).replace(/[^0-9]/g, '') === '6',
+   hint: 'Pista A y pista D.',
+   explain: '<b>6 días</b> (del 13 al 19 de octubre). Durante casi una semana hubo huellas en la red (pista B) que se podían haber visto: por eso detectar a tiempo marca la diferencia.'},
+  {q: 'Laura podía haber cortado el ataque ella sola. ¿En qué fase?', type: 'choice', options: F, correct: 2,
+   explain: '<b>Entrega.</b> Un adjunto que no esperaba, de un dominio raro: si no lo abre y llama al proveedor para confirmar, el ataque se cae ahí. Si cortas cualquier fase, la cadena se rompe.'},
+], 'N4{corta_una_fase_y_el_ataque_se_cae}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
