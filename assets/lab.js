@@ -1,14 +1,14 @@
 // Shared lab engine: catalog, progress (per-browser), answer checking.
 const LABS = [
-  {id: 'dominio-falso', ic: '🎣', title: 'Caza el dominio falso', desc: 'Ocho enlaces de un banco ficticio. Algunos son legítimos y otros son trampas de phishing. ¿Los distingues?', level: 'Fácil', lvl: 'easy', mins: 5, video: 'El detalle que delata una web falsa'},
-  {id: 'metadatos', ic: '📍', title: 'Lo que dice tu foto', desc: 'Analiza los metadatos EXIF de una foto publicada y descubre dónde, cuándo y con qué se hizo.', level: 'Fácil', lvl: 'easy', mins: 8, video: 'Tu foto dice dónde vives'},
-  {id: 'quien-ha-entrado', ic: '🪟', title: '¿Quién ha entrado en el PC?', desc: 'Investiga el registro de seguridad de un Windows comprometido: el ataque, la entrada y la puerta trasera.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Alguien ha entrado en tu PC?'},
-  {id: 'relleno-credenciales', ic: '🔓', title: 'Relleno de credenciales', desc: 'El registro de accesos de una tienda online muestra un ataque automatizado. Descubre qué cuentas cayeron.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu contraseña está a la venta'},
-  {id: 'engana-la-ia', ic: '🤖', title: 'Engaña a la IA', desc: 'Consigue que la IA de compras de una empresa te adjudique un contrato con texto invisible. Después, caza las órdenes ocultas en cinco correos.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Conseguí un contrato millonario engañando a su IA'},
-  {id: 'red-gemela', ic: '🛜', title: 'Encuentra la red gemela', desc: 'Un Wi-Fi gratis de aeropuerto con trampa: encuentra la antena gemela, cuenta las contraseñas robadas por su portal falso y descubre qué tráfico vio el atacante.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Este Wi-Fi gratis del aeropuerto lo creé yo'},
-  {id: 'camara-vulnerable', ic: '📷', title: 'Encuentra la cámara vulnerable', desc: 'Un buscador de dispositivos tipo Shodan, el router de una familia y el registro de su cámara: encuentra la cámara abierta, el puerto que la expone y al intruso.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu cámara puede salir en este buscador'},
-  {id: 'app-espia', ic: '📱', title: 'Encuentra la app espía', desc: 'Un Android con una app espía oculta: revisa la actividad, las apps y los permisos especiales, encuentra cuándo y cómo la instalaron y qué debe hacer su dueña sin ponerse en riesgo.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Te espían el móvil?'},
-  {id: 'kill-chain', ic: '⛓️', title: 'Ordena el ataque', desc: 'Nueve pistas desordenadas de un ataque de ransomware a una empresa ficticia: colócalas en las 7 fases de la Cyber Kill Chain y descubre dónde se podía haber cortado.', level: 'Fácil', lvl: 'easy', mins: 10, video: '¿Cómo se hackea una empresa?', pub: '2026-10-18T19:30:00+02:00'},
+  {id: 'dominio-falso', ic: '🎣', title: 'Caza el dominio falso', desc: 'Ocho enlaces de un banco ficticio. Algunos son legítimos y otros son trampas de phishing. ¿Los distingues?', level: 'Fácil', lvl: 'easy', mins: 5, video: 'El detalle que delata una web falsa', cat: 'phishing', pub: '2026-10-14T13:00:00+02:00'},
+  {id: 'metadatos', ic: '📍', title: 'Lo que dice tu foto', desc: 'Analiza los metadatos EXIF de una foto publicada y descubre dónde, cuándo y con qué se hizo.', level: 'Fácil', lvl: 'easy', mins: 8, video: 'Tu foto dice dónde vives', cat: 'movil', pub: '2026-10-14T13:00:00+02:00'},
+  {id: 'quien-ha-entrado', ic: '🪟', title: '¿Quién ha entrado en el PC?', desc: 'Investiga el registro de seguridad de un Windows comprometido: el ataque, la entrada y la puerta trasera.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Alguien ha entrado en tu PC?', cat: 'incidentes', pub: '2026-10-14T13:00:00+02:00'},
+  {id: 'relleno-credenciales', ic: '🔓', title: 'Relleno de credenciales', desc: 'El registro de accesos de una tienda online muestra un ataque automatizado. Descubre qué cuentas cayeron.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu contraseña está a la venta', cat: 'phishing', pub: '2026-10-14T13:00:00+02:00'},
+  {id: 'engana-la-ia', ic: '🤖', title: 'Engaña a la IA', desc: 'Consigue que la IA de compras de una empresa te adjudique un contrato con texto invisible. Después, caza las órdenes ocultas en cinco correos.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Conseguí un contrato millonario engañando a su IA', cat: 'ia', pub: '2026-10-14T21:00:00+02:00'},
+  {id: 'red-gemela', ic: '🛜', title: 'Encuentra la red gemela', desc: 'Un Wi-Fi gratis de aeropuerto con trampa: encuentra la antena gemela, cuenta las contraseñas robadas por su portal falso y descubre qué tráfico vio el atacante.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Este Wi-Fi gratis del aeropuerto lo creé yo', cat: 'redes', pub: '2026-10-15T19:30:00+02:00'},
+  {id: 'camara-vulnerable', ic: '📷', title: 'Encuentra la cámara vulnerable', desc: 'Un buscador de dispositivos tipo Shodan, el router de una familia y el registro de su cámara: encuentra la cámara abierta, el puerto que la expone y al intruso.', level: 'Medio', lvl: 'mid', mins: 15, video: 'Tu cámara puede salir en este buscador', cat: 'redes', pub: '2026-10-16T19:30:00+02:00'},
+  {id: 'app-espia', ic: '📱', title: 'Encuentra la app espía', desc: 'Un Android con una app espía oculta: revisa la actividad, las apps y los permisos especiales, encuentra cuándo y cómo la instalaron y qué debe hacer su dueña sin ponerse en riesgo.', level: 'Medio', lvl: 'mid', mins: 15, video: '¿Te espían el móvil?', cat: 'movil', pub: '2026-10-17T19:30:00+02:00'},
+  {id: 'kill-chain', ic: '⛓️', title: 'Ordena el ataque', desc: 'Nueve pistas desordenadas de un ataque de ransomware a una empresa ficticia: colócalas en las 7 fases de la Cyber Kill Chain y descubre dónde se podía haber cortado.', level: 'Fácil', lvl: 'easy', mins: 10, video: '¿Cómo se hackea una empresa?', cat: 'incidentes', pub: '2026-10-18T19:30:00+02:00'},
 ];
 
 // A lab with `pub` (ISO date) stays hidden until its video goes live; the page unlocks itself at that moment.
@@ -37,20 +37,95 @@ function track(path, title) {
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[“”"'`]/g, '').replace(/\s+/g, ' ').trim();
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// Catalog: «Novedad» for the lab released today (Madrid time), then filters (search, category, level, status) kept in the URL hash.
+const CATS = [
+  {id: 'phishing', ic: '🎣', name: 'Phishing y contraseñas'},
+  {id: 'movil', ic: '📱', name: 'Móvil y privacidad'},
+  {id: 'redes', ic: '🛜', name: 'Redes y dispositivos'},
+  {id: 'incidentes', ic: '🔎', name: 'Investigación de incidentes'},
+  {id: 'ia', ic: '🤖', name: 'Inteligencia artificial'},
+];
+const LEVELS = [['easy', 'Fácil'], ['mid', 'Medio'], ['hard', 'Difícil']];
+const madridDay = ms => new Date(ms).toLocaleDateString('es-ES', {timeZone: 'Europe/Madrid'});
+const isNew = l => l.pub && isLive(l) && madridDay(Date.parse(l.pub)) === madridDay(Date.now());
+const catOf = l => CATS.find(c => c.id === l.cat) || {ic: '🧪', name: 'Otros'};
+
+function readFilters() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  return {q: p.get('q') || '', cat: p.get('cat') || '', lvl: p.get('nivel') || '', st: p.get('estado') || ''};
+}
+function writeFilters(f) {
+  const p = new URLSearchParams();
+  if (f.q) p.set('q', f.q); if (f.cat) p.set('cat', f.cat); if (f.lvl) p.set('nivel', f.lvl); if (f.st) p.set('estado', f.st);
+  const h = p.toString();
+  history.replaceState(null, '', h ? '#' + h : location.pathname + location.search);
+}
+
 function renderCatalog(el) {
   LABS.filter(l => !isLive(l)).forEach(l => wakeAt(l.pub, () => renderCatalog(el)));
-  const labs = LIVE();
-  const solved = labs.filter(l => store.get('done:' + l.id)).length;
+  const labs = LIVE().sort((a, b) => isNew(b) - isNew(a) || Date.parse(b.pub || 0) - Date.parse(a.pub || 0));
+  const done = l => !!store.get('done:' + l.id);
+  const solved = labs.filter(done).length;
   document.getElementById('pcount').textContent = `${solved} de ${labs.length} completados`;
   document.getElementById('pbar').style.width = `${100 * solved / labs.length}%`;
-  el.innerHTML = labs.map(l => `
-    <a class="card" href="${l.id}/index.html">
-      ${store.get('done:' + l.id) ? '<span class="done">✓ HECHO</span>' : ''}
+
+  const box = document.getElementById('filters'), empty = document.getElementById('empty');
+  let f = readFilters();
+  const chip = (group, val, label, n, on) => `<button type="button" class="chip${on ? ' on' : ''}" data-g="${group}" data-v="${val}" aria-pressed="${on}">${label}${n === null ? '' : ` <span>${n}</span>`}</button>`;
+
+  function draw() {
+    const q = norm(f.q);
+    const match = (l, skip) =>
+      (skip === 'cat' || !f.cat || l.cat === f.cat) &&
+      (skip === 'lvl' || !f.lvl || l.lvl === f.lvl) &&
+      (!f.st || (f.st === 'hechos') === done(l)) &&
+      (!q || norm([l.title, l.desc, l.video, catOf(l).name].join(' ')).includes(q));
+    const levels = LEVELS.filter(([v]) => labs.some(l => l.lvl === v));
+    box.querySelector('.cats').innerHTML = chip('cat', '', 'Todos', labs.filter(l => match(l, 'cat')).length, !f.cat) +
+      CATS.filter(c => labs.some(l => l.cat === c.id)).map(c => chip('cat', c.id, `${c.ic} ${c.name}`, labs.filter(l => l.cat === c.id && match(l, 'cat')).length, f.cat === c.id)).join('');
+    box.querySelector('.more').innerHTML =
+      chip('lvl', '', 'Cualquier nivel', null, !f.lvl) + levels.map(([v, n]) => chip('lvl', v, n, null, f.lvl === v)).join('') +
+      '<span class="sep" aria-hidden="true"></span>' +
+      chip('st', '', 'Cualquier estado', null, !f.st) + chip('st', 'pendientes', 'Pendientes', null, f.st === 'pendientes') + chip('st', 'hechos', '✓ Completados', null, f.st === 'hechos');
+    const shown = labs.filter(l => match(l));
+    const filtered = !!(f.q || f.cat || f.lvl || f.st);
+    el.innerHTML = shown.map(l => {
+      const c = catOf(l), nw = isNew(l);
+      return `
+    <a class="card${nw ? ' new' : ''}" href="${l.id}/index.html">
+      ${done(l) ? '<span class="done">✓ HECHO</span>' : ''}
+      ${nw ? '<span class="nov">🆕 NOVEDAD · HOY</span>' : ''}
       <span class="ic" aria-hidden="true">${l.ic}</span>
+      <span class="kick">${c.ic} ${esc(c.name)}</span>
       <h3>${esc(l.title)}</h3>
       <p>${esc(l.desc)}</p>
       <div class="meta"><span class="pill ${l.lvl}">${l.level}</span><span class="pill">~${l.mins} min</span><span class="pill">🎬 ${esc(l.video)}</span></div>
-    </a>`).join('');
+    </a>`;
+    }).join('');
+    box.querySelector('.res').textContent = filtered ? `${shown.length} de ${labs.length} labs` : `${labs.length} labs`;
+    box.querySelector('.clear').hidden = !filtered;
+    empty.hidden = shown.length > 0;
+    writeFilters(f);
+  }
+
+  if (!box.dataset.ready) {
+    box.dataset.ready = 1;
+    box.innerHTML = `
+      <div class="frow"><input type="search" class="search" placeholder="Buscar: WhatsApp, Wi-Fi, contraseña…" aria-label="Buscar labs"><span class="res" aria-live="polite"></span><button type="button" class="clear" hidden>Quitar filtros</button></div>
+      <div class="cats chips" role="group" aria-label="Categoría"></div>
+      <div class="more chips" role="group" aria-label="Nivel y estado"></div>`;
+    const s = box.querySelector('.search');
+    s.addEventListener('input', () => { f.q = s.value; draw(); });
+    box.addEventListener('click', e => {
+      const b = e.target.closest('.chip');
+      if (b) { f[b.dataset.g] = b.dataset.v; draw(); track('labs/filtro/' + b.dataset.g + '/' + (b.dataset.v || 'todos')); }
+      if (e.target.closest('.clear')) { f = {q: '', cat: '', lvl: '', st: ''}; s.value = ''; draw(); }
+    });
+    empty.querySelector('button').addEventListener('click', () => box.querySelector('.clear').click());
+    window.addEventListener('hashchange', () => { f = readFilters(); s.value = f.q; draw(); });
+    s.value = f.q;
+  }
+  draw();
 }
 
 // tasks: [{q, type: 'text'|'choice', options?, accept: fn(normalizedAnswer) -> bool | array of answers, hint, explain}]
