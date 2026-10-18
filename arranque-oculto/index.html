@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caza el arranque oculto · Labs N4zar1</title>
+<meta name="description" content="Reto de persistencia en Windows: revisa los programas de inicio, las tareas programadas y las firmas de un PC que vuelve a infectarse tras cada limpieza, y descubre qué lo resucita.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🔁 Caza el arranque oculto</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Qué se enciende con tu PC?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> El portátil de Marta, de contabilidad en una empresa ficticia, va lento y se conecta una y otra vez a una IP rara. El viernes el antivirus borró un archivo sospechoso… y el lunes por la mañana vuelve a estar ahí. Te pasa la salida de cuatro comandos de PowerShell.</p>
+    <p><b>Tu misión:</b> encuentra qué se inicia con el equipo sin deber hacerlo, qué lo resucita y cómo entró. Chuleta: lo malicioso suele vivir en carpetas de usuario como <code>AppData</code> o <code>Temp</code>, se hace pasar por algo de Microsoft y no tiene firma digital. Pero «sin firma» no siempre significa «malo»: mira también quién lo creó y desde dónde se ejecuta.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Get-CimInstance Win32_StartupCommand</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (nombre, ruta…)" aria-label="Buscar en los programas de inicio"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-ScheduledTask -TaskPath '\' (tareas fuera de la carpeta de Microsoft)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (tarea, autor…)" aria-label="Buscar en las tareas programadas"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Get-AuthenticodeSignature de cada ejecutable</h3>
+      <span class="tools"><select id="q3" aria-label="Filtrar por estado"><option value="">Cualquier estado</option><option>Valid</option><option>NotSigned</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Get-ChildItem de las carpetas sospechosas (fechas de creación)</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (archivo, fecha…)" aria-label="Buscar en los archivos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría un analista: capturas de todo (nombre, ruta, tarea y fechas), sacar el equipo de la red, deshabilitar la tarea <code>SysHealthCheck</code> y la entrada de inicio <code>WindowsUpdate</code>, pasar el análisis sin conexión de Microsoft Defender y, como Marta abrió la «factura» en el PC de la empresa, avisar al equipo de seguridad: ese correo seguramente llegó a más gente. Y cambiar las contraseñas desde otro equipo limpio.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Persona, empresa, programas, tareas, rutas e IP ficticios (203.0.113.0/24 es un rango de documentación). Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Name', 'Command', 'Location', 'User'],
+  rows: [
+    ['OneDrive', '"C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe" /background', 'HKU\\S-1-5-21-…-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', 'EBORA\\marta'],
+    ['SecurityHealth', '%windir%\\system32\\SecurityHealthSystray.exe', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', 'Public'],
+    ['RtkAudUService', '"C:\\Windows\\System32\\RtkAudUService64.exe" -background', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', 'Public'],
+    ['Teams', 'C:\\Users\\marta\\AppData\\Local\\Microsoft\\Teams\\Update.exe --processStart "Teams.exe"', 'HKU\\S-1-5-21-…-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', 'EBORA\\marta'],
+    ['WindowsUpdate', 'C:\\Users\\marta\\AppData\\Roaming\\WinUpd\\WinUpdateSvc.exe -silent', 'HKU\\S-1-5-21-…-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', 'EBORA\\marta'],
+    ['CopiaNAS', 'C:\\IT\\scripts\\copia_nas.bat', 'Startup (C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp)', 'Public'],
+    ['Spotify', 'C:\\Users\\marta\\AppData\\Roaming\\Spotify\\Spotify.exe /minimized', 'HKU\\S-1-5-21-…-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', 'EBORA\\marta'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['TaskName', 'Autor', 'Creada', 'Disparador', 'Ejecuta'],
+  rows: [
+    ['MicrosoftEdgeUpdateTaskMachineCore', 'Microsoft Corporation', '03/02/2026 10:12', 'Al iniciar sesión · diario', 'C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe /c'],
+    ['OneDrive Reporting Task-S-1-5-21-…-1001', 'Microsoft Corporation', '03/02/2026 10:15', 'Diario', 'C:\\Users\\marta\\AppData\\Local\\Microsoft\\OneDrive\\OneDriveStandaloneUpdater.exe /reporting'],
+    ['CopiaNAS_semanal', 'EBORA\\admin.it', '15/06/2026 17:40', 'Viernes 19:00', 'C:\\IT\\scripts\\copia_nas.bat'],
+    ['SysHealthCheck', 'EBORA\\marta', '12/10/2026 09:15', 'Al iniciar sesión · repetir cada PT30M', 'powershell.exe -w hidden -File C:\\Users\\marta\\AppData\\Roaming\\WinUpd\\upd.ps1'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Status', 'Firmante', 'Path'],
+  rows: [
+    ['Valid', 'Microsoft Corporation', 'C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe'],
+    ['Valid', 'Microsoft Windows', 'C:\\Windows\\System32\\SecurityHealthSystray.exe'],
+    ['Valid', 'Realtek Semiconductor Corp.', 'C:\\Windows\\System32\\RtkAudUService64.exe'],
+    ['Valid', 'Microsoft Corporation', 'C:\\Users\\marta\\AppData\\Local\\Microsoft\\Teams\\Update.exe'],
+    ['NotSigned', '', 'C:\\Users\\marta\\AppData\\Roaming\\WinUpd\\WinUpdateSvc.exe'],
+    ['NotSigned', '', 'C:\\IT\\scripts\\copia_nas.bat'],
+    ['Valid', 'Spotify AB', 'C:\\Users\\marta\\AppData\\Roaming\\Spotify\\Spotify.exe'],
+  ],
+  filters: [{el: $('q3'), test: (r, v) => !v || r[0] === v}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Creado', 'Archivo', 'Tamaño'],
+  rows: [
+    ['12/10/2026 09:12', 'C:\\Users\\marta\\Downloads\\Factura_octubre.pdf.exe', '612 KB'],
+    ['12/10/2026 09:14', 'C:\\Users\\marta\\AppData\\Roaming\\WinUpd\\upd.ps1', '2 KB'],
+    ['16/10/2026 18:03', '(Defender) Amenaza quitada: C:\\Users\\marta\\AppData\\Roaming\\WinUpd\\WinUpdateSvc.exe', '—'],
+    ['19/10/2026 08:31', 'C:\\Users\\marta\\AppData\\Roaming\\WinUpd\\WinUpdateSvc.exe', '588 KB'],
+    ['15/06/2026 17:38', 'C:\\IT\\scripts\\copia_nas.bat', '1 KB'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('arranque-oculto', [
+  {q: '¿Qué entrada de inicio es la maliciosa? (escribe su Name)', type: 'text', ph: 'Name de la entrada',
+   accept: a => norm(a).includes('windowsupdate') || norm(a).includes('winupdatesvc'),
+   hint: 'Busca un nombre de Microsoft que se ejecute desde una carpeta del usuario.',
+   explain: '<b>WindowsUpdate</b>. Se llama como el servicio de actualizaciones, pero ejecuta <code>WinUpdateSvc.exe</code> desde <code>AppData\\Roaming</code>. El Windows Update de verdad vive en <code>C:\\Windows\\System32</code> y no aparece como programa de inicio.'},
+  {q: '¿Dónde está registrada para arrancar con el equipo?', type: 'choice',
+   options: ['En la clave Run del usuario (HKU\\…\\Run)', 'En la carpeta de Inicio común (StartUp)', 'Como servicio de Windows'], correct: 0,
+   explain: 'En la clave <b>Run del usuario</b>. Es el truco favorito del malware básico: para escribir ahí no hace falta ser administrador, así que basta con que el usuario abra el archivo. En MITRE ATT&amp;CK es la técnica T1547.001.'},
+  {q: '¿Qué tarea programada lo resucita?', type: 'text', ph: 'TaskName',
+   accept: a => norm(a).includes('syshealthcheck'),
+   hint: 'Mira qué tarea ejecuta algo dentro de la misma carpeta WinUpd.',
+   explain: '<b>SysHealthCheck</b>: la creó el propio usuario de Marta (no Microsoft), el mismo día de la infección, y lanza PowerShell oculto (<code>-w hidden</code>) con un script de <code>WinUpd</code>.'},
+  {q: '¿Cada cuántos minutos se repite?', type: 'text', ph: 'Minutos',
+   accept: a => a.replace(/[^0-9]/g, '') === '30',
+   hint: 'PT30M está en formato ISO 8601: P = periodo, T = tiempo, M = minutos.',
+   explain: '<b>Cada 30 minutos</b> (<code>PT30M</code>), además de en cada inicio de sesión.'},
+  {q: 'Defender borró WinUpdateSvc.exe el viernes 16/10. ¿Por qué ha vuelto el lunes?', type: 'choice',
+   options: ['Defender no lo borró de verdad', 'La tarea ejecuta upd.ps1, que lo vuelve a descargar si no existe', 'Marta volvió a abrir la factura el lunes'], correct: 1,
+   explain: 'El antivirus quitó el <b>.exe</b>, pero no el <b>script</b> ni la <b>tarea</b>. A las 08:31 del lunes, la tarea lanzó <code>upd.ps1</code> y el ejecutable volvió a aparecer. Por eso hay que quitar todas las piezas de la persistencia, no solo el archivo que detecta el antivirus.'},
+  {q: 'CopiaNAS tampoco tiene firma. ¿Es maliciosa?', type: 'choice',
+   options: ['Sí: todo lo que no tiene firma es malicioso', 'No: es un .bat del equipo de IT en C:\\IT, creado en junio por admin.it', 'No se puede saber'], correct: 1,
+   wrong: '✗ Fíjate en quién creó la tarea, desde dónde se ejecuta y cuándo apareció.',
+   explain: 'Los <b>scripts .bat no se firman</b> casi nunca. Lo creó <code>admin.it</code> en junio, vive en <code>C:\\IT</code> y no en una carpeta de usuario, y no coincide con la fecha de la infección. Un buen analista no se queda con un solo indicio: los combina.'},
+  {q: '¿Qué archivo abrió Marta para infectarse?', type: 'text', ph: 'Nombre del archivo',
+   accept: a => norm(a).includes('factura_octubre') || norm(a).includes('factura octubre'),
+   hint: 'Mira qué se creó justo antes que upd.ps1.',
+   explain: '<b>Factura_octubre.pdf.exe</b>, descargado a las 09:12 del 12/10. Dos minutos después aparecen el script y la tarea. La doble extensión <code>.pdf.exe</code> engaña porque Windows oculta por defecto la extensión real: actívala en el Explorador de archivos (Vista → Mostrar → Extensiones de nombre de archivo).'},
+  {q: '¿Qué harías primero?', type: 'choice',
+   options: ['Borrar la carpeta WinUpd y seguir trabajando', 'Capturas, sacar el PC de la red, deshabilitar la tarea y la entrada de inicio, análisis sin conexión y avisar a seguridad', 'Formatear el portátil esta misma tarde sin decir nada'], correct: 1,
+   explain: '<b>Pruebas, aislar y avisar.</b> Si borras la carpeta, la tarea la vuelve a crear. Si formateas sin avisar, nadie revisa si la «factura» llegó a más compañeros, ni qué datos salieron hacia la IP del atacante.'},
+], 'N4{la_tarea_programada_lo_resucita}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
