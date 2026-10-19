@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El portátil sin contraseña · Labs N4zar1</title>
+<meta name="description" content="Reto de Windows y BitLocker: alguien entró en un portátil sin saber la contraseña. Revisa manage-bde, el registro de seguridad y los archivos abiertos, y descubre qué hizo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🔐 El portátil sin contraseña</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Pueden entrar en tu Windows sin tu contraseña?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> En Gestoría Alcázar, una empresa ficticia, Marta (contabilidad) deja su portátil <code>PT-CONT-03</code> en la oficina el lunes 19/10. El martes a las 8 enciende, escribe su contraseña de siempre… y Windows le dice que no es correcta. Nadie más la sabía. IT te pasa la salida de cuatro comandos.</p>
+    <p><b>Tu misión:</b> averigua si el disco estaba protegido, cuándo y cómo cambiaron la contraseña, qué dejaron para volver y qué se llevaron. Chuleta: <code>4724</code> = alguien restableció una contraseña, <code>4720</code> = cuenta creada, <code>4732</code> = añadida a un grupo, <code>4624</code> / <code>4625</code> = inicio de sesión correcto / fallido. Ojo: no todo fallo de inicio de sesión es un ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · manage-bde -status (inventario de portátiles, 20/10)</h3>
+      <span class="tools"><select id="q1" aria-label="Filtrar por estado"><option value="">Cualquier estado</option><option>Protección activada</option><option>Protección desactivada</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-WinEvent -ComputerName PT-CONT-03 -LogName Security</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (Id, cuenta, hora…)" aria-label="Buscar en el registro de seguridad"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Get-WinEvent -ComputerName PT-CONT-03 -LogName System (arranques)</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (hora, texto…)" aria-label="Buscar en el registro del sistema"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Get-ChildItem C:\Users\marta\AppData\Roaming\Microsoft\Windows\Recent | Sort LastWriteTime</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (archivo, hora…)" aria-label="Buscar en los archivos recientes"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría un analista: no tocar nada antes de guardar copia de los registros, desactivar la cuenta <code>soporte</code> y darle a Marta una contraseña nueva, revisar qué salió en el pendrive (las cuentas IBAN de proveedores: avisar al banco y a los proveedores de posibles cambios de cuenta) y avisar a dirección. Y lo que lo habría parado: BitLocker en todos los portátiles (también en <code>PT-RRHH-01</code>), la clave de recuperación guardada fuera del equipo y contraseña en la BIOS/UEFI.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Persona, empresa, equipos y cuentas ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Equipo', 'Unidad', 'Estado de conversión', 'Porcentaje cifrado', 'Estado de protección', 'Método de cifrado'],
+  rows: [
+    ['PT-DIR-01', 'C:', 'Cifrado completo', '100,0%', 'Protección activada', 'XTS-AES 128'],
+    ['PT-CONT-01', 'C:', 'Cifrado completo', '100,0%', 'Protección activada', 'XTS-AES 128'],
+    ['PT-CONT-02', 'C:', 'Cifrado completo', '100,0%', 'Protección activada', 'XTS-AES 128'],
+    ['PT-CONT-03', 'C:', 'Totalmente descifrado', '0,0%', 'Protección desactivada', 'Ninguno'],
+    ['PT-RRHH-01', 'C:', 'Totalmente descifrado', '0,0%', 'Protección desactivada', 'Ninguno'],
+    ['PT-RRHH-02', 'C:', 'Cifrado completo', '100,0%', 'Protección activada', 'XTS-AES 128'],
+    ['PT-RECEP-01', 'C:', 'Cifrado completo', '100,0%', 'Protección activada', 'XTS-AES 128'],
+    ['PT-RECEP-01', 'D:', 'Cifrado completo', '100,0%', 'Protección activada', 'XTS-AES 128'],
+  ],
+  filters: [{el: $('q1'), test: (r, v) => !v || r[4] === v}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['TimeCreated', 'Id', 'Cuenta que actúa', 'Detalle'],
+  rows: [
+    ['19/10/2026 08:57:12', '4624', 'marta', 'Inicio de sesión correcto (tipo 2, en el teclado)'],
+    ['19/10/2026 08:57:12', '4672', 'marta', 'Privilegios especiales: no (usuaria estándar)'],
+    ['19/10/2026 14:02:40', '4634', 'marta', 'Cierre de sesión'],
+    ['19/10/2026 15:31:05', '4624', 'marta', 'Inicio de sesión correcto (tipo 7, desbloqueo)'],
+    ['19/10/2026 18:46:19', '4634', 'marta', 'Cierre de sesión'],
+    ['19/10/2026 21:16:33', '4624', 'SYSTEM', 'Inicio de sesión de servicio (tipo 5)'],
+    ['19/10/2026 21:19:47', '4724', 'PT-CONT-03$ (SYSTEM)', 'Se intentó restablecer la contraseña de una cuenta · Cuenta de destino: marta'],
+    ['19/10/2026 21:20:31', '4720', 'PT-CONT-03$ (SYSTEM)', 'Se creó una cuenta de usuario · Cuenta nueva: soporte'],
+    ['19/10/2026 21:20:31', '4724', 'PT-CONT-03$ (SYSTEM)', 'Se intentó restablecer la contraseña de una cuenta · Cuenta de destino: soporte'],
+    ['19/10/2026 21:20:58', '4732', 'PT-CONT-03$ (SYSTEM)', 'Miembro agregado a grupo local · soporte → Administradores'],
+    ['19/10/2026 21:21:40', '4624', 'marta', 'Inicio de sesión correcto (tipo 2, en el teclado)'],
+    ['19/10/2026 21:33:02', '4634', 'marta', 'Cierre de sesión'],
+    ['20/10/2026 08:03:11', '4625', 'marta', 'Error de inicio de sesión: contraseña incorrecta (tipo 2)'],
+    ['20/10/2026 08:03:25', '4625', 'marta', 'Error de inicio de sesión: contraseña incorrecta (tipo 2)'],
+    ['20/10/2026 08:03:52', '4625', 'marta', 'Error de inicio de sesión: contraseña incorrecta (tipo 2)'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['TimeCreated', 'Id', 'Origen', 'Mensaje'],
+  rows: [
+    ['19/10/2026 08:55:48', '12', 'Kernel-General', 'El sistema operativo se inició'],
+    ['19/10/2026 18:47:02', '13', 'Kernel-General', 'El sistema operativo se apagó (apagado normal)'],
+    ['19/10/2026 21:09:14', '12', 'Kernel-General', 'El sistema operativo se inició'],
+    ['19/10/2026 21:12:37', '1074', 'User32', 'Reinicio iniciado desde la pantalla de bloqueo (Mayús + Reiniciar)'],
+    ['19/10/2026 21:16:20', '6008', 'EventLog', 'El apagado anterior a las 21:15:02 fue inesperado'],
+    ['19/10/2026 21:16:21', '12', 'Kernel-General', 'El sistema operativo se inició'],
+    ['20/10/2026 08:01:36', '12', 'Kernel-General', 'El sistema operativo se inició'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['LastWriteTime', 'Name'],
+  rows: [
+    ['19/10/2026 09:14', 'Conciliacion_septiembre.xlsx.lnk'],
+    ['19/10/2026 11:38', 'Modelo_303_3T.pdf.lnk'],
+    ['19/10/2026 16:05', 'Facturas_recibidas_oct.xlsx.lnk'],
+    ['19/10/2026 21:23', 'E_ (KINGSTON).lnk'],
+    ['19/10/2026 21:24', 'IBAN_proveedores.pdf.lnk'],
+    ['19/10/2026 21:26', 'Nominas_octubre.xlsx.lnk'],
+    ['19/10/2026 21:29', 'Contraseñas_portales_AEAT.docx.lnk'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('windows-sin-clave', [
+  {q: 'Además del de Marta, ¿qué otro portátil tiene el disco C: sin cifrar? (nombre del equipo)', type: 'text', ph: 'PT-XXXX-00',
+   accept: a => norm(a).replace(/[^0-9a-z]/g, '').includes('rrhh01'),
+   hint: 'Filtra por «Protección desactivada».',
+   explain: '<b>PT-RRHH-01</b>, el de recursos humanos: «Totalmente descifrado» y «Protección desactivada». Con él se puede hacer lo mismo que con el de Marta, y tiene nóminas y DNI de toda la plantilla.'},
+  {q: '¿A qué hora exacta cambiaron la contraseña de Marta?', type: 'text', ph: 'hh:mm:ss',
+   accept: a => a.replace(/[^0-9]/g, '').includes('211947'),
+   hint: 'Busca el evento 4724 cuya cuenta de destino es marta.',
+   explain: '<b>21:19:47</b> del lunes. El evento <code>4724</code> es «se restableció una contraseña»: no hace falta saber la antigua para dejar una nueva.'},
+  {q: '¿Qué cuenta aparece haciendo el cambio?', type: 'choice',
+   options: ['marta, que se equivocó', 'Un administrador de IT desde su puesto', 'SYSTEM, el propio equipo (PT-CONT-03$), sin que nadie hubiera iniciado sesión'], correct: 2,
+   wrong: '✗ Mira la columna «Cuenta que actúa» del 4724 y si había alguien con sesión abierta.',
+   explain: 'Lo hizo <b>SYSTEM</b>, la cuenta del propio Windows, con la pantalla bloqueada. Es la huella del truco del vídeo: arrancar en el modo de recuperación (el reinicio de las 21:12 desde la pantalla de bloqueo) y conseguir una consola con permisos totales. Con el disco cifrado con BitLocker, esa consola no habría podido leer ni tocar nada.'},
+  {q: '¿Qué cuenta crearon para poder volver? (nombre)', type: 'text', ph: 'Cuenta',
+   accept: a => norm(a).includes('soporte'),
+   explain: 'La cuenta <b>soporte</b> (<code>4720</code>), con contraseña puesta (<code>4724</code>) y metida en Administradores (<code>4732</code>). Aunque Marta recupere su contraseña, quien tenga «soporte» puede volver a entrar con permisos totales.'},
+  {q: 'El martes a las 08:03 hay tres 4625 (contraseña incorrecta) de marta. ¿Es el atacante otra vez?', type: 'choice',
+   options: ['Sí: alguien está probando contraseñas', 'No: es Marta escribiendo su contraseña de siempre, que ya no vale porque se la cambiaron', 'Sí: son de la cuenta soporte'], correct: 1,
+   wrong: '✗ Mira cuándo se encendió el equipo el martes y qué le pasó a Marta.',
+   explain: 'Es <b>Marta</b>. El equipo arranca a las 08:01 y ella prueba su contraseña tres veces: falla porque el lunes se la cambiaron. Son la consecuencia del ataque, no el ataque. Un analista que persigue estos fallos pierde el tiempo: lo importante pasó la noche anterior.'},
+  {q: '¿Qué archivo con datos bancarios abrieron esa noche? (nombre)', type: 'text', ph: 'Archivo',
+   accept: a => norm(a).includes('iban'),
+   hint: 'Mira los archivos recientes después de las 21:21.',
+   explain: '<b>IBAN_proveedores.pdf</b>, justo después de enchufar un pendrive Kingston (unidad E:, 21:23). Con las cuentas de los proveedores se prepara una estafa de cambio de cuenta bancaria. Y abrieron también las nóminas y un documento de contraseñas de la AEAT.'},
+  {q: '¿Qué harías primero?', type: 'choice',
+   options: ['Guardar copia de los registros, desactivar «soporte», darle a Marta una contraseña nueva y avisar; luego cifrar los portátiles', 'Formatear el portátil y olvidarlo', 'Darle a Marta su contraseña de antes y seguir'], correct: 0,
+   explain: '<b>Pruebas, cerrar la puerta trasera, contraseña nueva y avisar.</b> Si formateas, pierdes las pruebas de qué se llevaron. Después, BitLocker en todos (empezando por PT-RRHH-01) con la clave de recuperación fuera del equipo, y avisar a los proveedores y al banco de que nadie cambie una cuenta sin confirmarlo por teléfono. Si eres un particular, el 017 de INCIBE te ayuda.'},
+], 'N4{la_contrasena_no_cifra_el_disco}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
