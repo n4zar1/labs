@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El garaje de la comunidad · Labs N4zar1</title>
+<meta name="description" content="Reto de Flipper Zero: entraron en el garaje de una comunidad sin mando y un vecino vio un aparatito naranja con un delfín. Revisa los registros y la tarjeta SD requisada, y descubre qué abrió de verdad.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🐬 El garaje de la comunidad</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Un Flipper Zero abre tu coche?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Comunidad Residencial Los Almendros, ficticia. La noche del martes 20 al miércoles 21/10 alguien entra en el garaje sin mando, sube al portal y fuerzan el coche de la plaza 9. Un vecino que volvía tarde vio a un chico con «un aparatito naranja con un delfín» en la mano. La policía requisa el aparato, un Flipper Zero, y el administrador te pasa cuatro registros.</p>
+    <p><b>Tu misión:</b> averigua qué abrió de verdad el Flipper y qué no, y qué tiene que cambiar la comunidad. Chuleta: un mando de <b>código fijo</b> manda siempre la misma señal; uno de <b>código cambiante</b> (rolling code) manda un código nuevo con un contador que solo sube; las tarjetas de <b>125 kHz</b> solo dicen su número. Ojo: que algo se abriera esa noche no quiere decir que lo abriera el Flipper.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Receptor de la puerta del garaje (433,92 MHz) · registro del 20 al 21/10</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (hora, código, plaza…)" aria-label="Buscar en el registro del garaje"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Lector del portal (tarjetas 125 kHz) · registro del 20 al 21/10</h3>
+      <span class="tools"><select id="q2" aria-label="Filtrar por resultado"><option value="">Cualquier resultado</option><option>Abierto</option><option>Denegado</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Tarjeta SD del Flipper requisado: cat /ext/subghz/*.sub /ext/lfrfid/*.rfid /ext/nfc/*.nfc (resumen)</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (archivo, protocolo…)" aria-label="Buscar en la tarjeta SD"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Coche de la plaza 9 (Seat León, 2021) · registro del módulo de cierre, leído en el taller</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (hora, evento…)" aria-label="Buscar en el registro del coche"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría un administrador: borrar del receptor el mando copiado (el de la plaza 14) y dar de baja la tarjeta del 3º B, guardar copia de los registros para la denuncia y, después, lo que lo para de verdad: receptor y mandos de código cambiante para todos los vecinos y tarjetas modernas cifradas (por ejemplo, MIFARE DESFire EV3) en el portal. El coche no se abrió con el Flipper: lo forzaron a mano.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Comunidad, personas, coches, códigos y tarjetas ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'Código recibido', 'Tipo', 'Mando dado de alta', 'Resultado'],
+  rows: [
+    ['20/10 08:02:15', '0x5A1', 'Fijo (12 bits)', 'Plaza 3 · Ana R.', 'Abre'],
+    ['20/10 08:31:40', '0xB2D', 'Fijo (12 bits)', 'Plaza 14 · Javier M.', 'Abre'],
+    ['20/10 09:12:03', '0x7E4', 'Fijo (12 bits)', 'Plaza 9 · Pilar S.', 'Abre'],
+    ['20/10 14:47:22', '0x0C8', 'Fijo (12 bits)', 'Plaza 21 · Rosa T.', 'Abre'],
+    ['20/10 19:58:10', '0x7E4', 'Fijo (12 bits)', 'Plaza 9 · Pilar S.', 'Abre'],
+    ['20/10 20:41:37', '0xB2D', 'Fijo (12 bits)', 'Plaza 14 · Javier M.', 'Abre'],
+    ['20/10 21:05:55', '0x5A1', 'Fijo (12 bits)', 'Plaza 3 · Ana R.', 'Abre'],
+    ['20/10 22:16:09', '0x3F2', 'Fijo (12 bits)', '(no dado de alta)', 'Ignorado'],
+    ['21/10 03:12:08', '0xB2D', 'Fijo (12 bits)', 'Plaza 14 · Javier M.', 'Abre'],
+    ['21/10 03:41:50', '(pulsador interior)', '—', 'Botón de salida', 'Abre'],
+    ['21/10 07:55:31', '0x0C8', 'Fijo (12 bits)', 'Plaza 21 · Rosa T.', 'Abre'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'ID de la tarjeta', 'Vivienda', 'Nota del administrador', 'Resultado'],
+  rows: [
+    ['20/10 07:48:12', '1A00C4E901', '1º A', '', 'Abierto'],
+    ['20/10 08:20:55', '2B00F1D3A0', '2º C', '', 'Abierto'],
+    ['20/10 13:02:37', '0000000000', '—', 'Tarjeta no registrada (una del gimnasio)', 'Denegado'],
+    ['20/10 18:45:20', '1A00C4E901', '1º A', '', 'Abierto'],
+    ['20/10 20:43:04', '6C00B7720F', '4º A', 'Javier M.', 'Abierto'],
+    ['20/10 22:30:47', '2B00F1D3A0', '2º C', '', 'Abierto'],
+    ['21/10 03:19:51', '4F00A12C7E', '3º B', 'Lucía G., de vacaciones desde el 15/10', 'Abierto'],
+    ['21/10 07:40:16', '2B00F1D3A0', '2º C', '', 'Abierto'],
+  ],
+  filters: [{el: $('q2'), test: (r, v) => !v || r[4] === v}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Archivo', 'Tipo de archivo', 'Protocolo', 'Datos', 'Fecha'],
+  rows: [
+    ['/ext/subghz/garaje_almendros.sub', 'Flipper SubGhz Key File', 'CAME · 12 bits · 433920000 Hz', 'Key: 00 00 00 00 00 00 0B 2D', '20/10 20:41'],
+    ['/ext/subghz/coche_leon.sub', 'Flipper SubGhz RAW File', 'RAW (KeeLoq: protocolo dinámico, no se puede guardar como llave)', 'RAW_Data: 412 -398 405 -810 … (una pulsación grabada)', '20/10 19:58'],
+    ['/ext/subghz/timbre_bar.sub', 'Flipper SubGhz Key File', 'Princeton · 24 bits · 433920000 Hz', 'Key: 00 00 00 00 00 A3 11 0F', '18/10 23:10'],
+    ['/ext/lfrfid/portal_3B.rfid', 'Flipper RFID key', 'EM4100 (125 kHz)', 'Data: 4F 00 A1 2C 7E', '14/10 11:26'],
+    ['/ext/nfc/tarjeta_bar.nfc', 'Flipper NFC device', 'ISO 14443-4A · EMV (Visa)', 'PAN: 4821 **** **** 0193 · Exp: 12/28 · sin CVV, sin PIN, sin claves', '19/10 22:04'],
+    ['/ext/nfc/abono_bus.nfc', 'Flipper NFC device', 'MIFARE Ultralight', 'Páginas leídas: 16/16', '17/10 08:15'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'Evento', 'Detalle'],
+  rows: [
+    ['20/10 09:12:00', 'Apertura con mando', 'Llave 1 · contador 18350 · válido'],
+    ['20/10 19:58:04', 'Apertura con mando', 'Llave 1 · contador 18354 · válido'],
+    ['20/10 19:58:41', 'Cierre con mando', 'Llave 1 · contador 18355 · válido'],
+    ['21/10 03:14:22', 'Señal de mando recibida', 'Contador 18354 · ya usado (último válido 18355) · rechazada'],
+    ['21/10 03:14:30', 'Señal de mando recibida', 'Contador 18354 · ya usado · rechazada'],
+    ['21/10 03:14:41', 'Señal de mando recibida', 'Contador 18354 · ya usado · rechazada'],
+    ['21/10 03:31:06', 'Alarma', 'Cerradura delantera izquierda girada sin llave válida (forzada) · puerta abierta'],
+    ['21/10 03:31:40', 'Intento de arranque', 'Sin llave válida en el habitáculo · inmovilizador activo · motor no arranca'],
+    ['21/10 08:30:12', 'Apertura con mando', 'Llave 1 · contador 18356 · válido'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('garaje-comunidad', [
+  {q: '¿A qué hora abrieron el garaje esa noche? (hh:mm:ss)', type: 'text', ph: 'hh:mm:ss',
+   accept: a => a.replace(/[^0-9]/g, '').includes('031208'),
+   hint: 'Busca en el registro del garaje lo que pasó de madrugada.',
+   explain: '<b>03:12:08</b>, con el código <code>0xB2D</code>: el mando de la plaza 14. Javier había entrado a las 20:41 y estaba en casa. La salida de las 03:41 es el botón de dentro: para salir no hace falta mando.'},
+  {q: '¿Por qué pudo el Flipper repetir la señal del garaje?', type: 'choice',
+   options: ['Porque el Flipper rompe el cifrado de cualquier mando', 'Porque el mando de la comunidad es de código fijo: manda siempre el mismo código, y quien lo graba una vez lo repite', 'Porque alguien le dio el mando de la plaza 14'], correct: 1,
+   wrong: '✗ Mira la columna «Tipo» del garaje y el archivo garaje_almendros.sub.',
+   explain: 'Es un mando de <b>código fijo</b> (CAME de 12 bits): el código de Javier, <code>0B2D</code>, es el mismo en cada pulsación. El archivo es de las 20:41: lo grabaron cuando Javier entró con el coche, y a las 03:12 solo hubo que repetirlo. No rompe nada: copia lo que no estaba cerrado bien.'},
+  {q: '¿De qué vivienda es la tarjeta del portal que copiaron? (piso y letra)', type: 'text', ph: 'Ej.: 2º C',
+   accept: a => norm(a).replace(/[^0-9a-z]/g, '').replace('o', '').includes('3b'),
+   hint: 'Mira qué tarjeta abrió el portal de madrugada y compárala con la SD.',
+   explain: 'La del <b>3º B</b>, <code>4F00A12C7E</code>, de Lucía, que está de vacaciones. Es una tarjeta de 125 kHz (EM4100): solo dice su número, sin cifrado, así que el Flipper la leyó una vez (el 14/10, al acercarse a ella) y luego se hizo pasar por ella.'},
+  {q: 'Esa noche abrieron el coche de la plaza 9. ¿Lo abrió el Flipper con la señal que grabó del mando?', type: 'choice',
+   options: ['Sí: grabó la señal a las 19:58 y la repitió a las 03:14', 'No: el coche rechazó la señal grabada porque su contador ya estaba gastado; a las 03:31 forzaron la cerradura a mano', 'Sí: con ella también arrancaron el motor'], correct: 1,
+   wrong: '✗ Mira qué hizo el coche con las señales de las 03:14 y qué pasó a las 03:31.',
+   explain: '<b>No.</b> El mando del coche es de código cambiante (KeeLoq): el Flipper ni siquiera deja guardarlo como llave, solo una grabación en bruto. Al repetirla, el coche ve el contador 18354, ya usado, y la rechaza tres veces. El coche se abrió porque <b>forzaron la cerradura</b> a mano, y el motor no arrancó: el inmovilizador pide la llave de verdad. Es la trampa: que el coche se abriera esa noche no quiere decir que lo abriera el Flipper.'},
+  {q: '¿Pueden pagar en una tienda con lo que el Flipper leyó de la tarjeta del banco?', type: 'choice',
+   options: ['Sí: tienen el número y la caducidad', 'Sí, si acercan el Flipper al datáfono', 'No: cada pago lleva una firma nueva que sale de la clave del chip, y la tarjeta nunca la suelta'], correct: 2,
+   wrong: '✗ Mira qué datos hay en tarjeta_bar.nfc y cuáles faltan.',
+   explain: '<b>No.</b> El Flipper leyó el número y la caducidad, nada más: ni el CVV, ni el PIN, ni las claves del chip. Cada pago sin contacto lleva una firma (un criptograma) nueva que calcula el chip con una clave que nunca sale de la tarjeta, así que con esa copia el datáfono deniega. Aun así, con el número y la caducidad pueden intentar un phishing más creíble: no los compartas.'},
+  {q: '¿Qué protocolo usa el mando del garaje que hay que cambiar? (nombre)', type: 'text', ph: 'Protocolo',
+   accept: a => norm(a).includes('came'),
+   hint: 'Está en el archivo .sub del garaje.',
+   explain: '<b>CAME</b> de 12 bits, de código fijo, como todos los mandos dados de alta en ese receptor. El Flipper lo marca como «estático»: lo puede guardar y repetir. Todos los mandos de la comunidad son igual de copiables, no solo el de la plaza 14.'},
+  {q: 'Eres el administrador. ¿Qué haces primero?', type: 'choice',
+   options: ['Comprar un detector de Flippers para la puerta', 'Borrar del receptor el mando de la plaza 14 y dar de baja la tarjeta del 3º B, guardar los registros para la denuncia y pasar a mandos de código cambiante y tarjetas cifradas modernas', 'Cambiar solo el mando de Javier y seguir igual'], correct: 1,
+   explain: '<b>Cerrar lo copiado, guardar pruebas y cambiar lo viejo.</b> Borrar el código <code>0xB2D</code> y la tarjeta <code>4F00A12C7E</code> corta el acceso ya; los registros sirven para la denuncia. Pero cualquier otro mando o tarjeta se puede copiar igual: lo que lo para es un receptor con mandos de código cambiante para todos y tarjetas cifradas modernas en el portal (por ejemplo, MIFARE DESFire EV3).'},
+], 'N4{el_delfin_no_abre_tu_coche}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
