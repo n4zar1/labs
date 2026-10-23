@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Quién usó el PC de Nuria? · Labs N4zar1</title>
+<meta name="description" content="Reto de incidentes: mientras Nuria comía, alguien desbloqueó su PC y mandó las nóminas por correo. Revisa los eventos 4624, 4800 y 107, los tornos de la planta y su Outlook, y descubre cuándo, cómo y quién.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>🔓 ¿Quién usó el PC de Nuria?</h1>
+  <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Alguien ha usado tu PC mientras no estabas?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Gestoría Puerta Real, ficticia. Jueves 23/10. Nuria, de administración, bloquea su PC con <b>Windows + L</b> a las 13:35 y baja a comer. Vuelve a las 14:43 y todo está igual. Al día siguiente, un trabajador pregunta por qué una empresa de fuera tiene su nómina: del correo de Nuria salió un Excel con las nóminas de octubre. Ella jura que estaba comiendo. El informático activó hace meses la auditoría del bloqueo (4800 y 4801), y te pasa cuatro pruebas.</p>
+    <p><b>Tu misión:</b> demuestra cuándo desbloquearon el PC, cómo, qué se llevaron y quién estaba en la planta. Chuleta del 4624: tipo <code>2</code> = en el teclado, <code>3</code> = por la red, <code>5</code> = un servicio, <code>7</code> = desbloqueo, <code>10</code> = escritorio remoto. Una cuenta que acaba en <code>$</code> es un equipo, no una persona. Ojo: no todo lo que pasa a mediodía es el intruso.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Get-WinEvent -FilterHashtable @{LogName='Security';Id=4624,4800,4801} (PC de Nuria, 23/10)</h3>
+      <span class="tools"><select id="q1" aria-label="Filtrar por evento"><option value="">Todos los eventos</option><option value="4624">4624 · inicio de sesión</option><option value="4800">4800 · bloqueo</option><option value="4801">4801 · desbloqueo</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-WinEvent -FilterHashtable @{LogName='System';Id=1,42,107,1074,6005,6006} (PC de Nuria, 23/10)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (Id, origen, texto…)" aria-label="Buscar en el registro del sistema"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Control de accesos · tornos de la planta 2, 23/10</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (persona, sentido…)" aria-label="Buscar en los tornos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Outlook de nuria@gestoriapuertareal.example · Enviados y Elementos eliminados, 23/10</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (destinatario, asunto, adjunto…)" aria-label="Buscar en el correo"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el responsable: no tocar el PC de Nuria y exportar ya el registro de Seguridad y el de Sistema, los tornos y el correo (con sus horas), porque son las pruebas. Cambiar el PIN de Nuria, cerrar sus sesiones y revisar si el Excel salió a más sitios. Una fuga de nóminas son datos personales: avisar a dirección y al delegado de protección de datos (la AEPD pide saberlo en 72 horas). Y hablar con Iván con todo eso delante. Para todos: Windows + L al levantarse, un PIN que nadie vea teclear y el bloqueo dinámico.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Gestoría, personas, dominios, IPs y cuentas ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['TimeCreated', 'Id', 'Tipo', 'Usuario', 'IP de origen'],
+  rows: [
+    ['23/10 08:58:40', '4624', '2', 'GPR\\nuria', '-'],
+    ['23/10 08:58:41', '4624', '5', 'SYSTEM', '-'],
+    ['23/10 09:15:02', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+    ['23/10 10:15:03', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+    ['23/10 11:02:17', '4800', '-', 'GPR\\nuria', '-'],
+    ['23/10 11:09:40', '4801', '-', 'GPR\\nuria', '-'],
+    ['23/10 11:09:40', '4624', '7', 'GPR\\nuria', '-'],
+    ['23/10 11:15:02', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+    ['23/10 12:15:04', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+    ['23/10 13:15:02', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+    ['23/10 13:30:58', '4624', '5', 'SYSTEM', '-'],
+    ['23/10 13:31:02', '4624', '2', 'GPR\\nuria', '-'],
+    ['23/10 13:35:12', '4800', '-', 'GPR\\nuria', '-'],
+    ['23/10 14:10:37', '4801', '-', 'GPR\\nuria', '-'],
+    ['23/10 14:10:37', '4624', '7', 'GPR\\nuria', '-'],
+    ['23/10 14:15:02', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+    ['23/10 14:21:48', '4800', '-', 'GPR\\nuria', '-'],
+    ['23/10 14:44:12', '4801', '-', 'GPR\\nuria', '-'],
+    ['23/10 14:44:12', '4624', '7', 'GPR\\nuria', '-'],
+    ['23/10 15:15:03', '4624', '3', 'GPR\\SRV-BACKUP$', '192.168.10.5'],
+  ],
+  filters: [{el: $('q1'), test: (r, v) => !v || r[1] === v}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['TimeCreated', 'Id', 'ProviderName', 'Mensaje'],
+  rows: [
+    ['23/10 08:57:55', '6005', 'EventLog', 'Se inició el servicio de registro de eventos.'],
+    ['23/10 13:29:10', '1074', 'User32', 'El proceso C:\\Windows\\servicing\\TrustedInstaller.exe ha iniciado el reinicio del equipo en nombre del usuario NT AUTHORITY\\SYSTEM. Motivo: Sistema operativo: Service Pack (planeado).'],
+    ['23/10 13:29:38', '6006', 'EventLog', 'Se detuvo el servicio de registro de eventos.'],
+    ['23/10 13:30:21', '6005', 'EventLog', 'Se inició el servicio de registro de eventos.'],
+    ['23/10 13:50:30', '42', 'Microsoft-Windows-Kernel-Power', 'El sistema entra en suspensión. Motivo: inactividad del sistema.'],
+    ['23/10 14:09:51', '107', 'Microsoft-Windows-Kernel-Power', 'El sistema se ha reanudado de la suspensión.'],
+    ['23/10 14:09:52', '1', 'Microsoft-Windows-Power-Troubleshooter', 'El sistema se reanudó desde un estado de bajo consumo. Origen de reactivación: Dispositivo - Teclado HID'],
+    ['23/10 14:36:50', '42', 'Microsoft-Windows-Kernel-Power', 'El sistema entra en suspensión. Motivo: inactividad del sistema.'],
+    ['23/10 14:43:58', '107', 'Microsoft-Windows-Kernel-Power', 'El sistema se ha reanudado de la suspensión.'],
+    ['23/10 14:43:59', '1', 'Microsoft-Windows-Power-Troubleshooter', 'El sistema se reanudó desde un estado de bajo consumo. Origen de reactivación: Dispositivo - Teclado HID'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Persona', 'Puesto', 'Sentido'],
+  rows: [
+    ['08:41:05', 'Nuria R.', 'Administración', 'Entrada'],
+    ['08:44:31', 'Iván M.', 'Becario de administración', 'Entrada'],
+    ['08:50:12', 'Rocío P.', 'Laboral', 'Entrada'],
+    ['08:55:48', 'Marcos L.', 'Fiscal', 'Entrada'],
+    ['13:36:20', 'Nuria R.', 'Administración', 'Salida'],
+    ['13:37:02', 'Marcos L.', 'Fiscal', 'Salida'],
+    ['13:38:40', 'Rocío P.', 'Laboral', 'Salida'],
+    ['13:52:15', 'Iván M.', 'Becario de administración', 'Salida'],
+    ['14:06:40', 'Iván M.', 'Becario de administración', 'Entrada'],
+    ['14:19:50', 'Rocío P.', 'Laboral', 'Entrada'],
+    ['14:24:05', 'Iván M.', 'Becario de administración', 'Salida'],
+    ['14:38:11', 'Marcos L.', 'Fiscal', 'Entrada'],
+    ['14:43:20', 'Nuria R.', 'Administración', 'Entrada'],
+    ['14:55:02', 'Iván M.', 'Becario de administración', 'Entrada'],
+    ['15:30:00', 'Limpieza (empresa externa)', '-', 'Entrada'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'Carpeta', 'Para', 'Asunto', 'Adjunto'],
+  rows: [
+    ['09:12:44', 'Enviados', 'contabilidad@ferreteriasol.example', 'RE: Modelo 303 del tercer trimestre', '303_3T.pdf (220 KB)'],
+    ['10:40:09', 'Enviados', 'rocio.p@gestoriapuertareal.example', 'Altas de octubre', '-'],
+    ['12:58:31', 'Enviados', 'admin@talleresnorte.example', 'Facturas de septiembre', 'Facturas_sep.zip (3,4 MB)'],
+    ['14:15:40', 'Elementos eliminados (movido a las 14:16:10)', 'nominas.envio@mail.example', 'nóminas', 'Nominas_octubre_GPR.xlsx (1,8 MB)'],
+    ['14:52:03', 'Enviados', 'marcos.l@gestoriapuertareal.example', 'RE: ¿Comemos el viernes?', '-'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('pc-desbloqueado', [
+  {q: '¿A qué hora desbloquearon el PC mientras Nuria comía? (hh:mm:ss)', type: 'text', ph: 'hh:mm:ss',
+   accept: a => a.replace(/\s/g, '').startsWith('14:10'),
+   hint: 'Nuria pasó el torno a las 13:36 y volvió a las 14:43. Busca un 4801 entre esas horas.',
+   explain: '<b>14:10:37</b>: un <code>4801</code> (desbloqueo) y, en el mismo segundo, un <code>4624</code> de tipo 7. Nuria había salido por el torno a las 13:36:20 y no volvió hasta las 14:43:20. El evento dice «GPR\\nuria», pero la hora dice que no era ella.'},
+  {q: 'Ese 4624 es de tipo 7. ¿Qué significa?', type: 'choice',
+   options: ['Que entraron por escritorio remoto desde otro equipo', 'Que desbloquearon la sesión en el propio PC: alguien delante de la pantalla, con el PIN de Nuria', 'Que el antivirus abrió la sesión para analizarla'], correct: 1,
+   wrong: '✗ Mira la chuleta del caso: ¿qué número es el escritorio remoto?',
+   explain: 'Tipo <b>7 = desbloqueo</b>. Se hace sentado delante del PC: no hay IP de origen. Si hubiera sido por escritorio remoto sería tipo <code>10</code>, con la IP de quien se conecta. Para desbloquearlo hacía falta el PIN de Nuria: quien lo usó se lo había visto teclear.'},
+  {q: 'A las 14:15:02 hay otro 4624, de tipo 3, desde 192.168.10.5. ¿Es el intruso entrando por la red?', type: 'choice',
+   options: ['Sí: un tipo 3 justo cuando se mandó el correo es el ataque', 'No: es GPR\\SRV-BACKUP$, una cuenta de equipo (acaba en $), el servidor de copias, que entra a las y cuarto de cada hora todo el día', 'Sí: el $ indica una cuenta de administrador oculta'], correct: 1,
+   wrong: '✗ Mira qué cuenta es y si aparece a otras horas.',
+   explain: '<b>No.</b> Es la trampa: <code>GPR\\SRV-BACKUP$</code> acaba en <code>$</code>, así que es un <b>equipo</b> (el servidor de copias de seguridad), no una persona. Entra por la red cada hora (09:15, 10:15… 15:15). Que caiga cerca de lo raro no lo hace raro: compara con el resto del día.'},
+  {q: 'A las 13:29 el PC se reinició y a las 13:31 hay un inicio de tipo 2. ¿Es parte del ataque?', type: 'choice',
+   options: ['Sí: alguien reinició el PC para saltarse el PIN', 'No: el 1074 es de TrustedInstaller, una actualización de Windows; el tipo 2 de las 13:31 es Nuria, que aún no había salido (torno a las 13:36:20)', 'No se puede saber'], correct: 1,
+   wrong: '✗ Mira quién pidió el reinicio (1074) y a qué hora salió Nuria por el torno.',
+   explain: '<b>No.</b> El <code>1074</code> dice que lo pidió <code>TrustedInstaller.exe</code>, en nombre de SYSTEM: es Windows Update. Luego vienen el 6006 (se apaga) y el 6005 (arranca). A las 13:31:02 Nuria inicia sesión (tipo 2, en el teclado), a las 13:35:12 bloquea (4800) y a las 13:36:20 pasa el torno. Todo normal.'},
+  {q: 'El PC estaba suspendido desde las 13:50. ¿Qué lo despertó a las 14:09:51?', type: 'choice',
+   options: ['Una tarea programada', 'La tarjeta de red (Wake-on-LAN): lo despertaron desde fuera', 'El teclado: alguien pulsó una tecla delante del PC'], correct: 2,
+   wrong: '✗ Junto al 107 hay un evento 1 de Power-Troubleshooter: lee el «Origen de reactivación».',
+   explain: '<b>El teclado.</b> El <code>107</code> dice que se reanudó y el evento <code>1</code> de Power-Troubleshooter dice por qué: «Teclado HID». Alguien estaba delante. 46 segundos después, a las 14:10:37, el desbloqueo.'},
+  {q: '¿Qué archivo salió del correo de Nuria?', type: 'text', ph: 'nombre.xlsx',
+   accept: a => norm(a).includes('nomina'),
+   hint: 'Busca en Outlook lo que se mandó entre las 14:10 y las 14:21, y mira en qué carpeta acabó.',
+   explain: '<b>Nominas_octubre_GPR.xlsx</b> (1,8 MB), a <code>nominas.envio@mail.example</code> a las 14:15:40. A las 14:16:10 lo movieron a Elementos eliminados para que no se viera en Enviados, y a las 14:21:48 bloquearon el PC (4800) para dejarlo como estaba. Por eso Nuria volvió y «todo estaba igual».'},
+  {q: 'Según los tornos, ¿quién estaba en la planta a las 14:10:37? (el nombre)', type: 'text', ph: 'Nombre',
+   accept: a => norm(a).includes('ivan'),
+   hint: 'Mira quién entró antes de las 14:10 y salió después de las 14:21. Ojo con quien llega después.',
+   explain: '<b>Iván</b>, el becario: entra a las 14:06:40, el PC despierta a las 14:09:51 y se va a las 14:24:05, dos minutos después del bloqueo de las 14:21:48. Rocío entra a las 14:19:50, nueve minutos después del desbloqueo: no pudo ser ella. Los tornos no prueban quién tecleó, pero sitúan a una sola persona en la planta en ese momento.'},
+  {q: 'Eres el responsable de la gestoría. ¿Qué haces primero?', type: 'choice',
+   options: ['Pedirle a Nuria que borre el correo de Eliminados para que no quede rastro', 'Guardar las pruebas sin tocar el PC (exportar los registros, los tornos y el correo), cambiar el PIN de Nuria y cerrar sus sesiones, avisar a dirección y al delegado de protección de datos, y hablar con Iván con todo eso delante', 'Despedir a Nuria: el evento dice que fue ella'], correct: 1,
+   explain: '<b>Pruebas primero.</b> Exporta el registro de Seguridad y el de Sistema, los tornos y el correo antes de que se sobrescriban. Cambia el PIN de Nuria: alguien lo conoce. Las nóminas son datos personales: dirección y el delegado de protección de datos tienen que saberlo (la AEPD pide la notificación en 72 horas). Y no culpes a Nuria: el evento dice que fue ella porque usaron su PIN, pero la hora dice que no.'},
+], 'N4{la_hora_no_miente}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
