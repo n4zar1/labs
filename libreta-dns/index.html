@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La libreta que no se borra · Labs N4zar1</title>
+<meta name="description" content="Reto de incidentes: Lucía borró el historial y su portátil sigue raro. Lee la caché DNS de Windows, cruza las conexiones abiertas y el historial de Edge, y descubre con quién habla su PC sin preguntarle.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>📒 La libreta que no se borra</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «¿A qué webs se ha conectado tu PC?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Asesoría Brisa, ficticia. Viernes 23/10. Lucía, de recursos humanos, nota su portátil lento desde el miércoles y el ventilador no para. Ayer por la tarde borró todo el historial de Edge «por si acaso» y el antivirus dice que está todo bien. No lo ha reiniciado desde el lunes. Antes de tocar nada, el informático saca tres cosas en una PowerShell.</p>
+    <p><b>Tu misión:</b> descubre con quién está hablando el PC de Lucía sin que ella lo sepa, qué programa lo hace y qué hay que hacer antes de que alguien reinicie. Chuleta: en la caché, el tipo <code>1</code> es un registro A (nombre → IP) y el <code>5</code> un CNAME (un nombre que apunta a otro). El «Período de vida» son los segundos que le quedan a la nota antes de borrarse. Ojo: no todo lo que tiene un nombre raro es malo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · ipconfig /displaydns (portátil de Lucía, 23/10 10:52)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (nombre, IP…)" aria-label="Buscar en la caché DNS"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-NetTCPConnection -State Established | Select RemoteAddress, RemotePort, OwningProcess, @{n='Proceso';e={(Get-Process -Id $_.OwningProcess).Path}}</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, puerto, proceso…)" aria-label="Buscar en las conexiones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Historial de Microsoft Edge (edge://history), desde el borrado</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (título, dirección…)" aria-label="Buscar en el historial"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el informático: quitar el cable o el Wi-Fi del portátil sin apagarlo ni reiniciarlo, guardar ya la libreta (<code>ipconfig /displaydns &gt; dns.txt</code>) y las conexiones con sus procesos, y copiar <code>OneDriveSync.exe</code> para analizarlo antes de borrar nada. Después, cambiar desde otro equipo las contraseñas que Lucía usó en ese portátil, mirar si 198.51.100.77 aparece en más equipos de la asesoría y avisar a dirección: en recursos humanos hay datos personales. Borrar el historial no la hacía invisible: la libreta de Windows seguía apuntando.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Asesoría, personas, dominios, IPs y programas ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Nombre de registro', 'Tipo', 'Período de vida', 'Datos'],
+  rows: [
+    ['login.live.com', '1', '214', '198.51.100.29'],
+    ['settings-win.data.microsoft.com', '1', '3011', '203.0.113.41'],
+    ['v10.events.data.microsoft.com', '5', '1877', 'onedsblobprdwus17.westus.cloudapp.azure.com'],
+    ['onedsblobprdwus17.westus.cloudapp.azure.com', '1', '1877', '203.0.113.52'],
+    ['wdcp.microsoft.com', '1', '2290', '203.0.113.9'],
+    ['ocsp.digicert.com', '1', '5114', '192.0.2.88'],
+    ['client.wns.windows.com', '1', '1402', '203.0.113.196'],
+    ['ctldl.windowsupdate.com', '5', '2731', 'ctldl.windowsupdate.com.edgesuite.net'],
+    ['ctldl.windowsupdate.com.edgesuite.net', '5', '2731', 'a767.dspw65.akamai.net'],
+    ['a767.dspw65.akamai.net', '1', '19', '192.0.2.140'],
+    ['outlook.office365.com', '1', '86', '198.51.100.140'],
+    ['teams.events.data.microsoft.com', '1', '602', '203.0.113.77'],
+    ['apresolve.spotify.com', '1', '157', '203.0.113.130'],
+    ['d3k81ch9hvuctc.cloudfront.net', '1', '41', '203.0.113.140'],
+    ['rrhh-backup.duckdns.org', '1', '47', '198.51.100.77'],
+    ['intranet.asesoriabrisa.example', '1', '1150', '192.168.1.10'],
+    ['time.windows.com', '1', '3305', '192.0.2.123'],
+    ['g.live.com', '1', '1009', '198.51.100.18'],
+    ['skydrive.wns.windows.com', '1', '1009', '198.51.100.19'],
+    ['rrhh-backup.duckdns.org', '28', '-', 'Nombre no existe (sin AAAA)'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['RemoteAddress', 'RemotePort', 'OwningProcess', 'Proceso'],
+  rows: [
+    ['192.168.1.10', '445', '4', 'System'],
+    ['203.0.113.41', '443', '2104', 'C:\\Windows\\System32\\svchost.exe'],
+    ['203.0.113.9', '443', '3304', 'C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25090.3009-0\\MsMpEng.exe'],
+    ['198.51.100.140', '443', '5012', 'C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE'],
+    ['203.0.113.77', '443', '6630', 'C:\\Program Files\\WindowsApps\\MSTeams_25275.2601.4002.2815_x64__8wekyb3d8bbwe\\ms-teams.exe'],
+    ['198.51.100.18', '443', '5530', 'C:\\Users\\lucia\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe'],
+    ['203.0.113.140', '443', '6120', 'C:\\Users\\lucia\\AppData\\Roaming\\Spotify\\Spotify.exe'],
+    ['203.0.113.88', '443', '4412', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'],
+    ['203.0.113.89', '443', '4412', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'],
+    ['198.51.100.77', '4782', '7788', 'C:\\Users\\lucia\\AppData\\Roaming\\Microsoft\\OneDriveSync\\OneDriveSync.exe'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Título', 'Dirección'],
+  rows: [
+    ['Ayer 18:02', 'Datos de navegación borrados (desde siempre)', '-'],
+    ['Hoy 09:04', 'Feed | LinkedIn', 'www.linkedin.com'],
+    ['Hoy 09:21', 'Ofertas de empleo · InfoJobs', 'www.infojobs.net'],
+    ['Hoy 10:06', 'Correo: Lucía | Outlook', 'outlook.office.com'],
+    ['Hoy 10:41', 'cómo saber si tengo un virus - Buscar', 'www.bing.com'],
+    ['Hoy 10:44', 'por qué el ventilador del portátil no para - Buscar', 'www.bing.com'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+runLab('libreta-dns', [
+  {q: '¿Qué dominio de la caché DNS es el sospechoso? (el nombre entero)', type: 'text', ph: 'algo.dominio.org',
+   accept: a => norm(a).replace(/\s/g, '').includes('rrhh-backup.duckdns'),
+   hint: 'Casi todo es Windows, Microsoft 365, el antivirus o programas que Lucía usa. Busca un DNS dinámico gratis.',
+   explain: '<b>rrhh-backup.duckdns.org</b>. <code>duckdns.org</code> es un DNS dinámico gratis: cualquiera saca un nombre en un minuto y lo apunta a su IP. Los troyanos de control remoto (AsyncRAT, Remcos, XWorm…) lo usan para que el atacante cambie de servidor sin tocar el troyano. Que se llame «rrhh-backup» es disfraz: ninguna copia de la asesoría vive ahí.'},
+  {q: '¿A qué IP apunta ese dominio?', type: 'text', ph: 'x.x.x.x',
+   accept: a => a.replace(/\s/g, '') === '198.51.100.77',
+   explain: '<b>198.51.100.77</b>. Es la columna «Datos» del registro de tipo 1 (A). Con esa IP ya puedes buscar qué programa habla con ella.'},
+  {q: 'd3k81ch9hvuctc.cloudfront.net tiene un nombre rarísimo y le quedan 41 segundos. ¿Es malo?', type: 'choice',
+   options: ['Sí: un nombre aleatorio así es siempre un troyano', 'No: cloudfront.net es la red de distribución de Amazon y sus nombres son siempre así; la conexión a esa IP es de Spotify.exe', 'Sí: le quedan pocos segundos porque se está escondiendo'], correct: 1,
+   wrong: '✗ Busca 203.0.113.140 en las conexiones: ¿qué programa la usa?',
+   explain: '<b>No.</b> Es la trampa: <code>cloudfront.net</code>, <code>akamai.net</code>, <code>edgesuite.net</code> o <code>cloudapp.azure.com</code> son redes de distribución de empresas grandes y sus nombres parecen tecleados por un gato. Cruzándolo con la evidencia 2, 203.0.113.140 es de <code>Spotify.exe</code>. Y un período de vida corto solo dice que esa nota caduca pronto: lo decide quien sirve el dominio.'},
+  {q: '¿Qué programa tiene abierta la conexión con esa IP? (el nombre del .exe)', type: 'text', ph: 'programa.exe',
+   accept: a => norm(a).replace(/\s/g, '').includes('onedrivesync'),
+   hint: 'Busca 198.51.100.77 en la evidencia 2.',
+   explain: '<b>OneDriveSync.exe</b>, desde <code>AppData\\Roaming\\Microsoft\\OneDriveSync\\</code>, al puerto <code>4782</code>. Se disfraza: el OneDrive de verdad es <code>OneDrive.exe</code> en <code>AppData\\Local\\Microsoft\\OneDrive\\</code> y habla por el 443 (también está en la lista). El 4782 es el puerto por defecto de varios troyanos de control remoto.'},
+  {q: 'Lucía entró en LinkedIn a las 09:04, pero www.linkedin.com no está en la caché. ¿Por qué?', type: 'choice',
+   options: ['Porque el troyano la ha borrado de la caché', 'Porque Edge, como Chrome, resuelve los nombres por su cuenta y casi nunca pasa por la libreta de Windows', 'Porque borró el historial y eso vacía también la caché'], correct: 1,
+   wrong: '✗ Recuerda el vídeo: ¿qué navegadores casi nunca pasan por esa libreta?',
+   explain: '<b>Edge y Chrome llevan su propia libreta</b>: tienen su resolutor DNS dentro y casi nunca preguntan a Windows. Por eso lo que ves en <code>ipconfig /displaydns</code> lo pidió <b>otro programa</b>, y por eso es tan útil: ahí está lo que hizo el PC sin que Lucía abriera nada. Borrar el historial de Edge no toca la caché DNS de Windows.'},
+  {q: 'Antes de que llegues, Lucía quiere reiniciar «a ver si se arregla». ¿Qué pasa con esta prueba?', type: 'choice',
+   options: ['Nada: la caché DNS se guarda en el disco', 'Se borra: la libreta vive en memoria y al reiniciar empieza vacía (y cada nota dura como mucho un día)', 'Se duplica: Windows hace copia al apagar'], correct: 1,
+   explain: '<b>Se borra.</b> La caché DNS de Windows está en memoria: al reiniciar (o con <code>ipconfig /flushdns</code>) empieza de cero, y cada nota caduca cuando acaba su período de vida, como mucho un día. Si hay sospecha, se guarda antes: <code>ipconfig /displaydns &gt; dns.txt</code>. El troyano volverá a preguntar por su dominio, pero lo que había antes se pierde.'},
+  {q: 'Eres el informático de la asesoría. ¿Qué haces primero?', type: 'choice',
+   options: ['Borrar OneDriveSync.exe y reiniciar para limpiar la memoria', 'Quitar la red al portátil sin apagarlo, guardar la caché DNS y las conexiones con sus procesos, copiar el .exe para analizarlo, y luego cambiar las contraseñas desde otro equipo y buscar esa IP en el resto de la oficina', 'Nada: el antivirus dice que está todo bien'], correct: 1,
+   explain: '<b>Aislar y guardar pruebas.</b> Sin red, el atacante pierde el control; sin apagar, la libreta y las conexiones siguen ahí. Guárdalas, copia el ejecutable y después límpialo. Las contraseñas que Lucía usó en ese portátil se cambian desde otro equipo, y la IP 198.51.100.77 y el dominio se buscan en el resto de la asesoría. Que el antivirus no lo vea no significa nada: el troyano se disfraza de OneDrive.'},
+], 'N4{el_pc_tambien_apunta}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
