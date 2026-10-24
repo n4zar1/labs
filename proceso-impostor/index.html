@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Cuál es el impostor? · Labs N4zar1</title>
+<meta name="description" content="Reto de incidentes: un svchost.exe que no es de Windows. Lee el árbol de procesos de Process Explorer (ruta, firma y VirusTotal), cruza las conexiones y el correo, y descubre quién lo lanzó y con quién habla.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}.evidence td:first-child{white-space:pre}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>¿Cuál es el impostor?</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Este svchost no es de Windows».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Construcciones Ribera, ficticia. Miércoles 28/10, 10:20. El portátil de Iván, de compras, va lentísimo y el ventilador no para. El antivirus dice «Sin amenazas». El informático abre Process Explorer como administrador, activa <code>Verify Image Signatures</code> y la columna de VirusTotal, guarda la lista y saca también las conexiones y el correo de Iván.</p>
+    <p><b>Tu misión:</b> encuentra el proceso que se hace pasar por Windows, quién lo lanzó, de dónde vino y con quién habla. Chuleta: el <code>svchost.exe</code> de verdad está en <code>C:\Windows\System32</code>, lo lanza <code>services.exe</code> y está firmado por Microsoft. En el árbol, la sangría indica quién abrió a quién. Ojo: que algo tenga una detección en VirusTotal no significa que sea malo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Process Explorer › File › Save As (portátil de Iván, 28/10 10:24)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (proceso, ruta, firma…)" aria-label="Buscar en los procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-NetTCPConnection -State Established | Select RemoteAddress, RemotePort, OwningProcess</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, PID…)" aria-label="Buscar en las conexiones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Bandeja de entrada de Outlook (Iván), miércoles</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (remitente, asunto…)" aria-label="Buscar en el correo"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el informático: quitar la red al portátil sin apagarlo (en memoria está la prueba), guardar la lista de Process Explorer y las conexiones, copiar <code>C:\Users\Public\svchost.exe</code> y <code>pedido_8841.docm</code> para analizarlos y buscar <code>203.0.113.66</code> y el dominio <code>proveedores-ribera.top</code> en el firewall y en los buzones del resto: si el correo llegó a Iván, llegó a más gente. Después, bloquear la IP y el remitente, desactivar las macros de Office que vengan de Internet y cambiar desde otro equipo las contraseñas que Iván usó en ese portátil.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, dominios, IPs y archivos ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Proceso', 'PID', 'Ruta', 'Verified Signer', 'VirusTotal'],
+  rows: [
+    ['System', '4', '-', '-', '-'],
+    ['  services.exe', '812', 'C:\\Windows\\System32\\services.exe', '(Verified) Microsoft Windows', '0/72'],
+    ['    svchost.exe', '1044', 'C:\\Windows\\System32\\svchost.exe', '(Verified) Microsoft Windows', '0/72'],
+    ['    svchost.exe', '1196', 'C:\\Windows\\System32\\svchost.exe', '(Verified) Microsoft Windows', '0/72'],
+    ['    svchost.exe', '1388', 'C:\\Windows\\System32\\svchost.exe', '(Verified) Microsoft Windows', '0/72'],
+    ['explorer.exe', '4120', 'C:\\Windows\\explorer.exe', '(Verified) Microsoft Windows', '0/72'],
+    ['  OneDrive.exe', '5590', 'C:\\Users\\ivan\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe', '(Verified) Microsoft Corporation', '1/72'],
+    ['  chrome.exe', '5208', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', '(Verified) Google LLC', '0/72'],
+    ['  OUTLOOK.EXE', '6020', 'C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE', '(Verified) Microsoft Corporation', '0/72'],
+    ['    WINWORD.EXE', '6632', 'C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE', '(Verified) Microsoft Corporation', '0/72'],
+    ['      powershell.exe', '7148', 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', '(Verified) Microsoft Windows', '0/72'],
+    ['        svchost.exe', '7310', 'C:\\Users\\Public\\svchost.exe', '(No signature)', '51/72'],
+    ['  Teams.exe', '6904', 'C:\\Users\\ivan\\AppData\\Local\\Microsoft\\Teams\\Teams.exe', '(Verified) Microsoft Corporation', '0/72'],
+  ],
+  cls: r => r[3] === '(No signature)' ? 'f' : (r[4] !== '0/72' && r[4] !== '-' ? 'w' : ''),
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['RemoteAddress', 'RemotePort', 'OwningProcess'],
+  rows: [
+    ['192.0.2.10', '443', '5590'],
+    ['198.51.100.140', '443', '6020'],
+    ['203.0.113.66', '8443', '7310'],
+    ['198.51.100.21', '443', '5208'],
+    ['192.0.2.77', '443', '6904'],
+    ['203.0.113.66', '8443', '7310'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Recibido', 'De', 'Asunto', 'Adjunto'],
+  rows: [
+    ['Mié 08:05', 'Marta Ruiz <marta@construccionesribera.example>', 'Planificación de la obra de Teruel', '-'],
+    ['Mié 09:41', 'Compras Proveedores <compras@proveedores-ribera.top>', 'Pedido 8841 pendiente de firma', 'pedido_8841.docm'],
+    ['Mié 09:50', 'Microsoft OneDrive <no-reply@onedrive.com>', 'Tus archivos están sincronizados', '-'],
+    ['Mié 10:02', 'Dirección <direccion@construccionesribera.example>', 'Reunión de compras a las 12:00', '-'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+runLab('proceso-impostor', [
+  {q: 'Hay cuatro svchost.exe. ¿Cuál es el PID del impostor?', type: 'text', ph: 'PID',
+   accept: a => norm(a).replace(/\s/g, '') === '7310',
+   hint: 'Mira la ruta y la firma de cada svchost.exe en la evidencia 1.',
+   explain: '<b>7310.</b> Falla en todo: está en <code>C:\\Users\\Public</code> en vez de System32, no tiene firma y VirusTotal lo marca 51 de 72. Además no cuelga de <code>services.exe</code>, como los de verdad.'},
+  {q: '¿Qué proceso lo lanzó? (el nombre del padre)', type: 'text', ph: 'proceso.exe',
+   accept: a => norm(a).replace(/\s/g, '') === 'powershell.exe' || norm(a) === 'powershell',
+   hint: 'En el árbol, cada proceso cuelga del que lo abrió: busca el que está justo encima con menos sangría.',
+   explain: '<b>powershell.exe</b> (PID 7148). Y PowerShell no lo abrió Iván: cuelga de Word.'},
+  {q: '¿Por qué es sospechoso ese PowerShell?', type: 'choice',
+   options: ['Porque PowerShell siempre es malware', 'Porque cuelga de WINWORD.EXE: un documento de Word lanzando PowerShell es una macro haciendo algo que no debe', 'Porque no está firmado'], correct: 1,
+   wrong: '✗ Mira su firma y su padre en la evidencia 1.',
+   explain: '<b>Por su padre.</b> powershell.exe está firmado por Microsoft y en su sitio: el programa es legítimo. Lo raro es quién lo abrió. Word → PowerShell es la alerta clásica de un SOC (MITRE T1204.002 y T1059.001).'},
+  {q: 'OneDrive.exe tiene 1/72 en VirusTotal. ¿Es otro virus?', type: 'choice',
+   options: ['Sí: cualquier detección es un virus', 'Casi seguro que no: está firmado por Microsoft, en su ruta normal, lo abrió explorer.exe, y una detección de 72 suele ser un falso positivo', 'Sí, porque está en AppData'], correct: 1,
+   explain: '<b>No.</b> Es la trampa. Un analista no se fía de una sola señal: firma válida, ruta esperada y padre normal pesan más que 1 de 72. El impostor falla en las cuatro a la vez.'},
+  {q: '¿Con qué IP habla el impostor?', type: 'text', ph: 'x.x.x.x',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.66',
+   hint: 'Busca su PID en la columna OwningProcess de la evidencia 2.',
+   explain: '<b>203.0.113.66</b>, por el puerto 8443. Es su servidor de control: hay que bloquearlo en el firewall y buscar si algún otro equipo habla con él.'},
+  {q: '¿Cómo empezó todo?', type: 'choice',
+   options: ['Iván se lo descargó de Chrome', 'Con el correo de las 09:41 de compras@proveedores-ribera.top: el adjunto pedido_8841.docm traía una macro que lanzó PowerShell', 'Por una actualización de OneDrive'], correct: 1,
+   wrong: '✗ El árbol empieza en OUTLOOK.EXE → WINWORD.EXE. Busca en el correo un documento de Word.',
+   explain: '<b>Por correo.</b> Un <code>.docm</code> es un Word con macros. Llegó de un dominio que imita a la empresa (<code>proveedores-ribera.top</code>), Iván lo abrió desde Outlook, la macro lanzó PowerShell y PowerShell dejó el falso svchost en <code>C:\\Users\\Public</code>.'},
+  {q: 'Eres el informático. ¿Qué haces primero?', type: 'choice',
+   options: ['Matar el proceso 7310, borrar el archivo y seguir', 'Quitar la red al portátil sin apagarlo, guardar las evidencias y buscar la IP y el remitente en el resto de la empresa', 'Pasar otra vez el antivirus'], correct: 1,
+   explain: '<b>Aislar, guardar y buscar al resto.</b> Si matas y borras, pierdes la prueba y no sabes a quién más le llegó. El antivirus ya dijo «Sin amenazas» una vez.'},
+], 'N4{svchost_fuera_de_system32}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
