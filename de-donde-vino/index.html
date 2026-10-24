@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿De dónde vino? · Labs N4zar1</title>
+<meta name="description" content="Reto de incidentes: el antivirus saltó con una descarga y Pablo no recuerda de dónde la bajó. Lee la etiqueta oculta (Zone.Identifier) de sus seis descargas, cruza el aviso del antivirus y su correo, y descubre de qué web salió.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a class="tienda" data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>📥 ¿De dónde vino?</h1>
+  <p class="lede">Medio · ~10 min · Basado en el vídeo «¿Te ha entrado un virus y no sabes de qué web lo bajaste?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Gestoría Olmo, ficticia. Martes 27/10, 09:40. A Pablo, de administración, le salta Seguridad de Windows con una amenaza en Descargas. Él jura que solo ha bajado «cosas del trabajo», no se acuerda de dónde salió cada una y el viernes borró el historial del navegador. El informático saca tres cosas antes de tocar nada.</p>
+    <p><b>Tu misión:</b> averigua qué archivo es el malo, de qué web salió y cómo llegó Pablo hasta ella. Chuleta: cada descarga lleva una etiqueta oculta, <code>Zone.Identifier</code>. <code>ZoneId=3</code> es Internet, <code>1</code> la red local; <code>ReferrerUrl</code> es la página donde estabas y <code>HostUrl</code>, la dirección exacta del archivo. Ojo: no todo lo que parece raro es malo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Get-ChildItem $HOME\Downloads | Get-Content -Stream Zone.Identifier (portátil de Pablo, 27/10 09:44)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (archivo, web…)" aria-label="Buscar en las descargas"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Get-MpThreatDetection | Select InitialDetectionTime, ThreatName, Resources, ActionSuccess</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (amenaza, ruta…)" aria-label="Buscar en las detecciones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Bandeja de entrada de Outlook (Pablo), lunes y martes</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (remitente, asunto…)" aria-label="Buscar en el correo"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el informático: quitar la red al portátil sin apagarlo, guardar las etiquetas de todas las descargas (<code>Get-Content -Stream Zone.Identifier</code>) y el aviso del antivirus, copiar <code>nomina.exe</code> para analizarlo y buscar <code>nominas-olmo.top</code> en el registro del proxy y en los buzones del resto de la gestoría: si llegó a Pablo, llegó a más gente. Después, bloquear el dominio y al remitente, y avisar a todos de que la nómina nunca llega como un .exe. Borrar el historial no escondió nada: la etiqueta iba pegada al archivo.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Gestoría, personas, dominios y archivos ficticios. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Archivo', 'ZoneId', 'ReferrerUrl', 'HostUrl'],
+  rows: [
+    ['informe.pdf', '3', 'https://outlook.office.com/', 'https://attachments.office.net/owa/pablo@gestoriaolmo.example/service.svc/s/GetFileAttachment?id=AAMk…'],
+    ['nomina.exe', '3', 'https://nominas-olmo.top/portal/empleado?id=4471', 'https://nominas-olmo.top/descargas/nomina.exe'],
+    ['fotos.zip', '3', 'https://wetransfer.com/', 'https://download.wetransfer.com/eu2/7c1e…/fotos.zip'],
+    ['datos.xlsx', '1', '-', 'file://srv-olmo/compartida/clientes/datos.xlsx'],
+    ['musica.mp3', '(sin etiqueta)', '-', '-'],
+    ['update.exe', '3', 'https://zoom.us/download', 'https://zoom.us/client/latest/ZoomInstallerFull.exe'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['InitialDetectionTime', 'ThreatName', 'Resources', 'ActionSuccess'],
+  rows: [
+    ['27/10/2026 09:38:12', 'Trojan:Win32/Lumma!rfn', 'file:_C:\\Users\\pablo\\Downloads\\nomina.exe', 'True'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Recibido', 'De', 'Asunto'],
+  rows: [
+    ['Lun 08:12', 'Laura Gil <laura@gestoriaolmo.example>', 'Informe trimestral (adjunto)'],
+    ['Lun 11:30', 'WeTransfer <noreply@wetransfer.com>', 'Marta te ha enviado fotos.zip'],
+    ['Lun 16:05', 'Zoom <no-reply@zoom.us>', 'Hay una actualización de Zoom disponible'],
+    ['Mar 09:02', 'RRHH Gestoría Olmo <rrhh@gestoriaolmo-nominas.top>', 'Tu nómina de octubre ya está disponible'],
+    ['Mar 09:15', 'Dirección <direccion@gestoriaolmo.example>', 'Reunión de equipo a las 12:00'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+runLab('de-donde-vino', [
+  {q: '¿Qué archivo detectó el antivirus? (el nombre)', type: 'text', ph: 'archivo.ext',
+   accept: a => norm(a).replace(/\s/g, '').includes('nomina.exe'),
+   hint: 'Mira la columna Resources de la evidencia 2.',
+   explain: '<b>nomina.exe</b>. Una nómina es un PDF; un <code>.exe</code> es un programa. Ya sabes cuál es: ahora falta de dónde vino.'},
+  {q: '¿De qué web se descargó? (el dominio)', type: 'text', ph: 'dominio.tld',
+   accept: a => norm(a).replace(/\s/g, '').includes('nominas-olmo.top'),
+   hint: 'Busca nomina.exe en la evidencia 1 y lee su HostUrl.',
+   explain: '<b>nominas-olmo.top</b>. Lo dice el <code>HostUrl</code> de su etiqueta: <code>https://nominas-olmo.top/descargas/nomina.exe</code>. La web de la gestoría de verdad es <code>gestoriaolmo.example</code>; esta solo se le parece.'},
+  {q: 'update.exe tiene pinta de virus. ¿Lo es?', type: 'choice',
+   options: ['Sí: «update.exe» es el nombre típico de un malware', 'No: su etiqueta dice que vino de zoom.us, la web oficial de Zoom, y el antivirus no lo detecta', 'No se puede saber sin abrirlo'], correct: 1,
+   wrong: '✗ Lee su ReferrerUrl y su HostUrl en la evidencia 1.',
+   explain: '<b>No.</b> Es la trampa: el nombre asusta, pero la etiqueta dice que salió de <code>https://zoom.us/client/latest/</code>, la web oficial, y cuadra con el correo de Zoom del lunes. La etiqueta no prueba que un archivo sea bueno, pero sí te dice de dónde vino, y eso es lo primero que mira un analista.'},
+  {q: 'musica.mp3 no tiene etiqueta. ¿Qué significa?', type: 'choice',
+   options: ['Que es el virus y se la ha quitado', 'Que no llegó desde Internet por el navegador: probablemente se copió de un pendrive o del móvil, y por eso Windows no le puso la marca', 'Que Windows la borra a los dos días'], correct: 1,
+   explain: '<b>No vino de Internet por el navegador.</b> Lo copiado de un pendrive, del móvil o de un disco no lleva marca. Por eso a los atacantes les interesa quitarla: un archivo sin etiqueta abre sin avisos de SmartScreen ni Vista protegida. Ese es el fallo que Microsoft parcheó en octubre (CVE-2026-96951): saltarse esa marca. Aquí el mp3 no es el problema: el antivirus no lo detecta y no es un programa.'},
+  {q: 'Pablo borró el historial. ¿Cómo llegó a esa web? Mira el ReferrerUrl y el correo.', type: 'choice',
+   options: ['Buscando «nómina» en Google', 'Desde un correo que se hacía pasar por RRHH: el del martes a las 09:02, de un dominio parecido al de la gestoría', 'Se la mandó Laura por Teams'], correct: 1,
+   wrong: '✗ El ReferrerUrl es una página de «portal de empleado». Busca en el correo qué llegó justo antes de las 09:38.',
+   explain: '<b>Por correo.</b> A las 09:02 llegó «Tu nómina de octubre ya está disponible» de <code>rrhh@gestoriaolmo-nominas.top</code>: un dominio que se parece al real pero no lo es. El enlace llevaba al «portal de empleado» del <code>ReferrerUrl</code> y de ahí bajó <code>nomina.exe</code>. El antivirus saltó a las 09:38.'},
+  {q: 'Eres el informático. ¿Qué haces primero?', type: 'choice',
+   options: ['Borrar nomina.exe, vaciar la papelera y seguir trabajando', 'Quitar la red al portátil sin apagarlo, guardar las etiquetas y el aviso del antivirus, copiar el .exe para analizarlo y buscar ese dominio y ese remitente en el resto de la gestoría', 'Reiniciar el portátil para que Windows termine de limpiarlo'], correct: 1,
+   explain: '<b>Aislar, guardar y buscar al resto.</b> Si el correo llegó a Pablo, llegó a más gente: el dominio <code>nominas-olmo.top</code> y el remitente se buscan en el proxy y en los buzones, y se bloquean. Si alguien llegó a ejecutarlo, sus contraseñas se cambian desde otro equipo (Lumma roba las del navegador).'},
+], 'N4{la_etiqueta_no_miente}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
