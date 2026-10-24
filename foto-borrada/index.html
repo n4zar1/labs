@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La tarjeta formateada · Labs N4zar1</title>
+<meta name="description" content="Reto: Álex vendió de segunda mano la tarjeta SD de su cámara después de formatearla. Abre los bytes de la tarjeta, busca la firma de las fotos y recupera lo que «había borrado».">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="stylesheet" href="../assets/lab.css">
+<style>
+.evidence h3{margin:0;font:inherit}
+.evidence td{font-family:ui-monospace,Consolas,monospace;white-space:pre}
+.evidence td:nth-child(2){color:#9fd2ff}
+.carver{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.carver input{flex:1;min-width:180px}
+.fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px}
+.fotos figure{margin:0;background:#0b1430;border-radius:14px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.fotos canvas{width:100%;border-radius:10px;display:block}
+.fotos figcaption{font-size:13px;opacity:.8;margin-top:6px;word-break:break-all}
+.msg{font-size:14px;opacity:.85}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
+    <nav><a class="tienda" data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a><a href="../index.html">← Todos los labs</a></nav>
+  </header>
+
+  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
+  <h1>💾 La tarjeta formateada</h1>
+  <p class="lede">Fácil · ~10 min · Basado en el vídeo «Lo formateaste… y tus fotos siguen ahí».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Álex vende su cámara vieja con la tarjeta SD de 8 GB. Antes de enviarla, la mete en el portátil, clic derecho → <i>Formatear…</i> con «Formato rápido» marcado, y Windows le dice que está vacía. El comprador, curioso, hace una copia exacta de la tarjeta y la abre con un visor de bytes.</p>
+    <p><b>Tu misión:</b> eres el comprador. Mira los bytes, encuentra dónde empieza cada foto y recupéralas con el recuperador de abajo. Chuleta: los números van en hexadecimal (<code>FF</code> = 255) y el offset es la posición dentro de la tarjeta. Las fotos no tienen nombre: solo se reconocen por cómo empiezan sus bytes.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Explorador de Windows: E:\ (CAMARA) después del formateo</h3><span class="tools"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Visor de bytes de la copia (tarjeta.img), sectores con datos</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (FF D8, Exif, offset…)" aria-label="Buscar en los bytes"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Recuperador (como PhotoRec: lee desde un offset hasta el final de la foto)</h3></div>
+    <div class="carver">
+      <input id="off" placeholder="Offset donde empieza, p. ej. 0x00000000" aria-label="Offset">
+      <button class="btn" id="carve">Recuperar</button>
+    </div>
+    <div class="msg" id="msg">Escribe el offset de una fila que empiece por la firma de una foto.</div>
+    <div class="fotos" id="fotos"></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>✓ Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que debió hacer Álex: formatear <b>sin</b> marcar «Formato rápido» (desde Windows Vista, el formato completo llena la tarjeta de ceros) o, desde la consola, <code>format E: /fs:exFAT /p:1</code>. Si solo quiere limpiar lo ya borrado sin perder lo demás, <code>cipher /w:E:\</code>. En Linux, <code>sudo shred -v -n1 /dev/sdX</code>. ¿Y el móvil? Los actuales van cifrados: al restablecer de fábrica se tira la llave y lo que queda es ilegible. Antes, cierra tus cuentas y saca la tarjeta SD si tiene.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Persona, cámara, fotos y documento ficticios (el DNI es un ESPÉCIMEN). Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Nombre', 'Tamaño', 'Tipo'],
+  rows: [['(Esta carpeta está vacía)', '-', '-'], ['Espacio libre', '7,39 GB de 7,39 GB', '-']],
+  filters: [],
+});
+
+// Filas del visor: offset, 16 bytes y su texto.
+const HEX = [
+  ['0x00000000', 'EB 58 90 4D 53 44 4F 53 35 2E 30 00 02 40 20 00', '.X.MSDOS5.0..@ .'],
+  ['0x00000040', '80 00 29 6A 1C 3E 91 4E 4F 20 4E 41 4D 45 20 20', '..)j.>.NO NAME  '],
+  ['0x00000050', '20 20 46 41 54 33 32 20 20 20 33 C9 8E D1 BC F4', '  FAT32   3.....'],
+  ['0x00400000', 'F8 FF FF 0F FF FF FF 0F 00 00 00 00 00 00 00 00', '................'],
+  ['0x00400010', '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00', '................'],
+  ['0x00800000', '43 41 4D 41 52 41 20 20 20 20 20 08 00 00 00 00', 'CAMARA     .....'],
+  ['0x00800020', '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00', '................'],
+  ['0x00C00000', 'FF D8 FF E1 1F FE 45 78 69 66 00 00 4D 4D 00 2A', '......Exif..MM.*'],
+  ['0x00C00090', '56 49 56 41 2D 43 41 4D 20 32 30 00 32 30 32 35', 'VIVA-CAM 20.2025'],
+  ['0x00C3A7F0', '8A 1F 3C 77 D2 0B 51 A9 E4 2B 99 C1 00 3F FF D9', '..<w..Q..+...?..'],
+  ['0x01A40000', 'FF D8 FF E0 00 10 4A 46 49 46 00 01 01 00 00 48', '......JFIF.....H'],
+  ['0x01A40020', '00 48 00 00 FF FE 00 0C 6C 75 6E 61 5F 70 65 72', '.H......luna_per'],
+  ['0x01A40030', '72 6F 2E 6A 70 67 FF DB 00 43 00 08 06 06 07 06', 'ro.jpg...C......'],
+  ['0x01A6B5C0', 'C4 51 12 9E 03 77 BA 6D 21 F0 0E 85 6B 2A FF D9', '.Q...w.m!...k*..'],
+  ['0x02000000', '89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52', '.PNG........IHDR'],
+  ['0x02000010', '00 00 04 38 00 00 09 60 08 06 00 00 00 5B 2C 1E', '...8...`.....[,.'],
+  ['0x02B7C000', 'FF D8 FF E1 0B 2C 45 78 69 66 00 00 49 49 2A 00', '.....,Exif..II*.'],
+  ['0x02B7C0A0', '44 4E 49 5F 64 65 6C 61 6E 74 65 00 56 49 56 41', 'DNI_delante.VIVA'],
+  ['0x02B9E3F0', '0F A2 77 C9 19 E0 4D 5B 82 3C 6E 11 D4 07 FF D9', '..w...M[.<n.....'],
+  ['0x03200000', 'D2 8C 41 F0 77 1E 9A 03 5C FF D8 21 6B 30 E2 94', '..A.w...\\..!k0..'],
+  ['0x03F00000', 'FF D8 FF DB 00 84 00 06 04 05 06 05 04 06 06 05', '................'],
+  ['0x03F00090', '74 61 72 74 61 5F 61 62 75 65 6C 61 00 00 00 00', 'tarta_abuela....'],
+  ['0x03F2C9A0', '61 F3 0C 8E 27 B4 D1 5A 90 E6 33 AF 18 C2 FF D9', 'a...\'..Z..3.....'],
+  ['0x04000000', '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00', '................'],
+];
+makeTable({
+  el: $('ev2'),
+  cols: ['Offset', 'Bytes (hex)', 'Texto'],
+  rows: HEX,
+  filters: [{el: $('q2'), test: (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase().trim())}],
+});
+
+// Fotos que salen al recuperar desde el offset correcto (dibujadas, ficticias).
+const FOTOS = {
+  '00c00000': ['IMG_0001.jpg · atardecer', c => { const g = c.createLinearGradient(0, 0, 0, 200); g.addColorStop(0, '#ff7a45'); g.addColorStop(.6, '#ffc46b'); g.addColorStop(.61, '#1e4f7a'); g.addColorStop(1, '#0d2740'); c.fillStyle = g; c.fillRect(0, 0, 300, 200); c.fillStyle = '#fff3b0'; c.beginPath(); c.arc(150, 120, 34, Math.PI, 0); c.fill(); }],
+  '01a40000': ['luna_perro.jpg', c => { c.fillStyle = '#7cc46b'; c.fillRect(0, 0, 300, 200); c.fillStyle = '#c98a4b'; c.beginPath(); c.ellipse(150, 120, 70, 45, 0, 0, 7); c.fill(); c.beginPath(); c.arc(205, 85, 32, 0, 7); c.fill(); c.fillStyle = '#7a4f28'; c.beginPath(); c.ellipse(225, 62, 10, 20, .5, 0, 7); c.fill(); c.fillStyle = '#222'; c.beginPath(); c.arc(214, 80, 4, 0, 7); c.fill(); }],
+  '02b7c000': ['DNI_delante.jpg ⚠', c => { c.fillStyle = '#d9e4ef'; c.fillRect(0, 0, 300, 200); c.fillStyle = '#9db7d1'; c.fillRect(0, 0, 300, 34); c.fillStyle = '#1b2a44'; c.font = 'bold 15px sans-serif'; c.fillText('DOCUMENTO NACIONAL DE IDENTIDAD', 12, 23); c.fillStyle = '#b8c6d6'; c.fillRect(14, 48, 80, 100); c.fillStyle = '#1b2a44'; c.font = '13px sans-serif'; ['APELLIDOS: EJEMPLO EJEMPLO', 'NOMBRE: ÁLEX', 'NACIMIENTO: 01 01 1990', 'NÚM: 99999999R'].forEach((t, i) => c.fillText(t, 106, 66 + i * 22)); c.save(); c.translate(150, 110); c.rotate(-.35); c.fillStyle = 'rgba(220,40,60,.75)'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center'; c.fillText('ESPÉCIMEN', 0, 0); c.restore(); }],
+  '03f00000': ['tarta_abuela.jpg', c => { c.fillStyle = '#3b2a4a'; c.fillRect(0, 0, 300, 200); c.fillStyle = '#f5d0e0'; c.fillRect(80, 100, 140, 70); c.fillStyle = '#e85d8a'; c.fillRect(80, 100, 140, 16); c.fillStyle = '#fff'; for (let i = 0; i < 5; i++) { c.fillRect(100 + i * 25, 72, 6, 28); c.fillStyle = '#ffb020'; c.beginPath(); c.ellipse(103 + i * 25, 66, 5, 9, 0, 0, 7); c.fill(); c.fillStyle = '#fff'; } }],
+};
+const PNG = '02000000';
+const hecho = new Set();
+function recuperar() {
+  const v = $('off').value.toLowerCase().replace(/\s/g, '').replace(/^0x/, '').padStart(8, '0');
+  if (FOTOS[v]) {
+    if (hecho.has(v)) { $('msg').textContent = 'Esa ya la has recuperado.'; return; }
+    hecho.add(v);
+    const [nombre, dibujar] = FOTOS[v];
+    const f = document.createElement('figure'), cv = document.createElement('canvas');
+    cv.width = 300; cv.height = 200; dibujar(cv.getContext('2d'));
+    f.append(cv); const cap = document.createElement('figcaption'); cap.textContent = `0x${v.toUpperCase()} · ${nombre}`; f.append(cap);
+    $('fotos').append(f);
+    $('msg').textContent = `✓ Foto recuperada desde 0x${v.toUpperCase()} hasta su FF D9. Llevas ${hecho.size} de 4.`;
+    track('lab/foto-borrada/recuperada', 'Foto recuperada');
+  } else if (v === PNG) {
+    $('msg').textContent = 'Eso es una imagen PNG (firma 89 50 4E 47), no una foto JPEG de la cámara: una captura de pantalla vieja. Busca FF D8 FF.';
+  } else if (v === '03200009' || v === '03200000') {
+    $('msg').textContent = 'Ese FF D8 está en mitad de una fila de datos, no al principio de un sector: es basura de otra foto. Las fotos empiezan con FF D8 FF justo al inicio.';
+  } else {
+    $('msg').textContent = 'Ahí no empieza ninguna foto. Busca filas que empiecen por FF D8 FF.';
+  }
+}
+$('carve').onclick = recuperar;
+$('off').addEventListener('keydown', e => { if (e.key === 'Enter') recuperar(); });
+
+const hexNorm = a => a.toLowerCase().replace(/0x/g, '').replace(/[^0-9a-f]/g, '');
+runLab('foto-borrada', [
+  {q: 'Después del formateo, ¿cuántos archivos ve Windows en la tarjeta?', type: 'choice',
+   options: ['Ninguno: la carpeta está vacía', 'Los mismos que antes', 'Solo las fotos que no se hayan borrado'], correct: 0,
+   explain: '<b>Ninguno.</b> Mira las filas <code>0x00400000</code> (la tabla FAT) y <code>0x00800000</code> (el directorio): están a ceros salvo la etiqueta «CAMARA». El formateo rápido solo rehace ese índice. Windows lee el índice, no lo ve y te dice que está vacía.'},
+  {q: '¿Con qué tres bytes empieza una foto JPEG? (en hexadecimal)', type: 'text', ph: 'XX XX XX',
+   accept: a => hexNorm(a) === 'ffd8ff',
+   hint: 'Fíjate en lo que tienen en común las filas que dicen «Exif» o «JFIF».',
+   explain: '<b>FF D8 FF</b>. Es la «firma» de los JPEG: todos empiezan así y terminan en <code>FF D9</code>. Los recuperadores como PhotoRec no necesitan el índice: recorren la tarjeta buscando esa firma.'},
+  {q: '¿Cuántas fotos JPEG hay escondidas en la tarjeta? Recupéralas con el recuperador.', type: 'text', ph: 'un número',
+   accept: a => a.replace(/\D/g, '') === '4',
+   hint: 'Cuenta las filas cuyo offset termina en ceros y empiezan por FF D8 FF. Ojo con el PNG y con un FF D8 suelto en mitad de una fila.',
+   explain: '<b>Cuatro</b>: en <code>0x00C00000</code>, <code>0x01A40000</code>, <code>0x02B7C000</code> y <code>0x03F00000</code>. La fila <code>0x02000000</code> es un PNG (<code>89 50 4E 47</code>) y el <code>FF D8</code> de <code>0x03200000</code> está en mitad de datos: no es el principio de nada.'},
+  {q: 'Una de las fotos es un documento de identidad. ¿En qué offset empieza?', type: 'text', ph: '0x........',
+   accept: a => hexNorm(a).replace(/^0+/, '') === '2b7c000',
+   hint: 'Busca «DNI» en el visor y sube a la fila de la firma más cercana.',
+   explain: '<b>0x02B7C000</b>. Sus metadatos dicen «DNI_delante». Con una foto así, un comprador puede intentar suplantar a Álex: abrir cuentas, pedir préstamos o colarse en la verificación de alguna app.'},
+  {q: '¿Por qué siguen ahí las fotos si Windows dice que está vacía?', type: 'choice',
+   options: ['Porque la tarjeta estaba rota', 'Porque el formateo rápido solo borra el índice (dónde está cada archivo); los datos siguen hasta que algo nuevo los pisa', 'Porque las fotos se esconden en una carpeta oculta'], correct: 1,
+   explain: '<b>Solo tira el índice.</b> Es como arrancar el índice de un libro: las páginas siguen dentro. Hasta que no se escribe algo encima, cualquiera con un recuperador gratuito las saca.'},
+  {q: 'Álex compra otra tarjeta y quiere vender esta bien. ¿Qué hace en Windows?', type: 'choice',
+   options: ['Formateo rápido otra vez, pero dos veces', 'Formatear sin marcar «Formato rápido» (o format E: /fs:exFAT /p:1), que llena la tarjeta de ceros', 'Borrar las fotos con Supr y vaciar la papelera'], correct: 1,
+   explain: '<b>Formato completo.</b> Desde Windows Vista, quitar «Formato rápido» escribe ceros en toda la tarjeta. Desde la consola, <code>/p:1</code> hace una pasada de ceros. Borrar y vaciar la papelera hace lo mismo que el formateo rápido: tira el índice y deja los datos.'},
+  {q: '¿Y si vende el móvil?', type: 'choice',
+   options: ['Igual que la tarjeta: no se puede borrar de verdad', 'Los móviles actuales van cifrados: restablecer de fábrica tira la llave y lo que queda es ilegible. Antes, cerrar sus cuentas y sacar la SD si tiene', 'Basta con borrar la galería'], correct: 1,
+   explain: '<b>Cifrado.</b> Los iPhone y los Android actuales cifran el almacenamiento: sin la llave, los datos que quedan son ruido. Por eso basta con restablecer de fábrica, después de cerrar sesión en Google o iCloud (si no, el móvil queda bloqueado para el comprador) y de sacar la tarjeta SD, que no siempre va cifrada.'},
+], 'N4{formatear_no_es_borrar}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
