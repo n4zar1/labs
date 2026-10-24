@@ -7,6 +7,8 @@
 <meta name="description" content="Reto de inyección de prompt: consigue que la IA de compras de una empresa ficticia te adjudique un contrato con texto invisible, y después detecta las órdenes ocultas en cinco correos.">
 <meta name="theme-color" content="#040a1c">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="../assets/lab.css">
 <style>
 .part{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:36px 0 12px;font:800 24px/1.2 var(--display)}
@@ -54,12 +56,10 @@
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
-    <nav><a class="tienda" data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a><a href="../index.html">← Todos los labs</a></nav>
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
   </header>
-
-  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
-  <h1>🤖 Engaña a la IA</h1>
+  <h1>Engaña a la IA</h1>
   <p class="lede">Medio · ~15 min · Basado en el vídeo «Conseguí un contrato millonario engañando a su IA».</p>
 
   <div class="brief">
@@ -96,7 +96,7 @@
   <div class="tasks" id="tasks"></div>
 
   <div class="win" id="win">
-    <h2>✓ Reto completado</h2>
+    <h2>Reto completado</h2>
     <p>Bandera: <code id="flag"></code></p>
     <p>La lección: una IA no distingue entre las órdenes de quien la usa y el texto que lee. Por eso las defensas que funcionan no dependen de que la IA «se dé cuenta»: limitan lo que puede hacer. Que no envíe, borre, pague ni decida nada sin que una persona lo confirme, y que solo tenga acceso a lo imprescindible.</p>
     <button class="btn ghost" id="reset">Reiniciar el reto</button>

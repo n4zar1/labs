@@ -75,7 +75,7 @@ function renderCatalog(el) {
   const labs = LIVE().sort((a, b) => isNew(b) - isNew(a) || Date.parse(b.pub || 0) - Date.parse(a.pub || 0));
   const done = l => !!store.get('done:' + l.id);
   const solved = labs.filter(done).length;
-  document.getElementById('pcount').textContent = `${solved} de ${labs.length} completados`;
+  document.getElementById('pcount').textContent = `${solved} de ${labs.length} resueltos`;
   document.getElementById('pbar').style.width = `${100 * solved / labs.length}%`;
 
   const box = document.getElementById('filters'), empty = document.getElementById('empty');
@@ -91,24 +91,24 @@ function renderCatalog(el) {
       (!q || norm([l.title, l.desc, l.video, catOf(l).name].join(' ')).includes(q));
     const levels = LEVELS.filter(([v]) => labs.some(l => l.lvl === v));
     box.querySelector('.cats').innerHTML = chip('cat', '', 'Todos', labs.filter(l => match(l, 'cat')).length, !f.cat) +
-      CATS.filter(c => labs.some(l => l.cat === c.id)).map(c => chip('cat', c.id, `${c.ic} ${c.name}`, labs.filter(l => l.cat === c.id && match(l, 'cat')).length, f.cat === c.id)).join('');
+      CATS.filter(c => labs.some(l => l.cat === c.id)).map(c => chip('cat', c.id, c.name, labs.filter(l => l.cat === c.id && match(l, 'cat')).length, f.cat === c.id)).join('');
     box.querySelector('.more').innerHTML =
       chip('lvl', '', 'Cualquier nivel', null, !f.lvl) + levels.map(([v, n]) => chip('lvl', v, n, null, f.lvl === v)).join('') +
       '<span class="sep" aria-hidden="true"></span>' +
-      chip('st', '', 'Cualquier estado', null, !f.st) + chip('st', 'pendientes', 'Pendientes', null, f.st === 'pendientes') + chip('st', 'hechos', '✓ Completados', null, f.st === 'hechos');
+      chip('st', '', 'Cualquier estado', null, !f.st) + chip('st', 'pendientes', 'Pendientes', null, f.st === 'pendientes') + chip('st', 'hechos', 'Completados', null, f.st === 'hechos');
     const shown = labs.filter(l => match(l));
     const filtered = !!(f.q || f.cat || f.lvl || f.st);
     el.innerHTML = shown.map(l => {
       const c = catOf(l), nw = isNew(l);
       return `
-    <a class="card${nw ? ' new' : ''}" href="${l.id}/index.html">
-      ${done(l) ? '<span class="done">✓ HECHO</span>' : ''}
-      ${nw ? '<span class="nov">🆕 NOVEDAD · HOY</span>' : ''}
-      <span class="ic" aria-hidden="true">${l.ic}</span>
-      <span class="kick">${c.ic} ${esc(c.name)}</span>
-      <h3>${esc(l.title)}</h3>
-      <p>${esc(l.desc)}</p>
-      <div class="meta"><span class="pill ${l.lvl}">${l.level}</span><span class="pill">~${l.mins} min</span><span class="pill">🎬 ${esc(l.video)}</span></div>
+    <a class="lab${nw ? ' nuevo' : ''}" href="${l.id}/index.html">
+      <div>
+        ${nw ? '<span class="nov">Nuevo hoy</span>' : ''}
+        <h3>${esc(l.title)}${done(l) ? '<span class="hecho">Resuelto</span>' : ''}</h3>
+        <p>${esc(l.desc)}</p>
+      </div>
+      <div class="meta"><b>${esc(c.name)}</b><span><span class="${l.lvl}">${l.level}</span> · ${l.mins} min</span><span>Vídeo: ${esc(l.video)}</span></div>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>`;
     }).join('');
     box.querySelector('.res').textContent = filtered ? `${shown.length} de ${labs.length} labs` : `${labs.length} labs`;

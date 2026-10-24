@@ -7,18 +7,18 @@
 <meta name="description" content="Reto de incidentes: el antivirus saltó con una descarga y Pablo no recuerda de dónde la bajó. Lee la etiqueta oculta (Zone.Identifier) de sus seis descargas, cruza el aviso del antivirus y su correo, y descubre de qué web salió.">
 <meta name="theme-color" content="#040a1c">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="../assets/lab.css">
 <style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}</style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
-    <nav><a class="tienda" data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a><a href="../index.html">← Todos los labs</a></nav>
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
   </header>
-
-  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
-  <h1>📥 ¿De dónde vino?</h1>
+  <h1>¿De dónde vino?</h1>
   <p class="lede">Medio · ~10 min · Basado en el vídeo «¿Te ha entrado un virus y no sabes de qué web lo bajaste?».</p>
 
   <div class="brief">
@@ -47,7 +47,7 @@
   <div class="tasks" id="tasks"></div>
 
   <div class="win" id="win">
-    <h2>✓ Reto completado</h2>
+    <h2>Reto completado</h2>
     <p>Bandera: <code id="flag"></code></p>
     <p>Lo que haría el informático: quitar la red al portátil sin apagarlo, guardar las etiquetas de todas las descargas (<code>Get-Content -Stream Zone.Identifier</code>) y el aviso del antivirus, copiar <code>nomina.exe</code> para analizarlo y buscar <code>nominas-olmo.top</code> en el registro del proxy y en los buzones del resto de la gestoría: si llegó a Pablo, llegó a más gente. Después, bloquear el dominio y al remitente, y avisar a todos de que la nómina nunca llega como un .exe. Borrar el historial no escondió nada: la etiqueta iba pegada al archivo.</p>
     <button class="btn ghost" id="reset">Reiniciar el reto</button>

@@ -7,18 +7,18 @@
 <meta name="description" content="Reto de Windows y BitLocker: alguien entró en un portátil sin saber la contraseña. Revisa manage-bde, el registro de seguridad y los archivos abiertos, y descubre qué hizo.">
 <meta name="theme-color" content="#040a1c">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="../assets/lab.css">
 <style>.evidence h3{margin:0;font:inherit}</style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="40" height="40"><span><b>Laboratorios</b><span>LABS.N4ZAR1</span></span></a>
-    <nav><a class="tienda" data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a><a href="../index.html">← Todos los labs</a></nav>
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
   </header>
-
-  <span class="tag"><i></i>SIMULACIÓN · LABORATORIO</span>
-  <h1>🔐 El portátil sin contraseña</h1>
+  <h1>El portátil sin contraseña</h1>
   <p class="lede">Medio · ~15 min · Basado en el vídeo «¿Pueden entrar en tu Windows sin tu contraseña?».</p>
 
   <div class="brief">
@@ -53,7 +53,7 @@
   <div class="tasks" id="tasks"></div>
 
   <div class="win" id="win">
-    <h2>✓ Reto completado</h2>
+    <h2>Reto completado</h2>
     <p>Bandera: <code id="flag"></code></p>
     <p>Lo que haría un analista: no tocar nada antes de guardar copia de los registros, desactivar la cuenta <code>soporte</code> y darle a Marta una contraseña nueva, revisar qué salió en el pendrive (las cuentas IBAN de proveedores: avisar al banco y a los proveedores de posibles cambios de cuenta) y avisar a dirección. Y lo que lo habría parado: BitLocker en todos los portátiles (también en <code>PT-RRHH-01</code>), la clave de recuperación guardada fuera del equipo y contraseña en la BIOS/UEFI.</p>
     <button class="btn ghost" id="reset">Reiniciar el reto</button>
