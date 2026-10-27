@@ -1,14 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders:opsz,wght@10..72,700..900&family=Geist:wght@400..700&family=Geist+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=DM+Sans:opsz,wght@9..40,400..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 :root{
   color-scheme: dark;
-  /* marca: azul noche del avatar; un solo acento (azul) y el cian solo para señales vivas */
-  --bg:#040a1c; --s1:#0a1122; --s2:#0f172b; --s3:#141d34; --line:#1b2540; --line2:#2a3654;
-  --fg:#eef2fb; --fg2:#b4bfd6; --fg3:#7d89a6;
-  --azul:#1f66e5; --azul-h:#1859d1; --azul-a:#144bb3; --enlace:#5b9bff; --cian:#3fe0ff;
+  /* marca (27/10/2026): azul noche de fondo y tinta cian, como n4zar1.com y la tienda */
+  --bg:#040a1c; --s1:#0d1a3a; --s2:#112146; --s3:#16295a; --line:#1f6f86; --line2:#3fe0ff;
+  --fg:#3fe0ff; --fg2:#9eeeff; --fg3:#6fc6db;
+  --azul:#3fe0ff; --azul-h:#7ae9ff; --azul-a:#2bc4e0; --enlace:#3fe0ff; --cian:#3fe0ff;
   --ok:#3ddc84; --amber:#ffc24b; --alert:#ff5d6c;
-  --display:"Big Shoulders",Impact,"Arial Narrow",sans-serif;
-  --body:Geist,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --display:"Archivo",Impact,"Arial Narrow",sans-serif;
+  --body:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --t:160ms cubic-bezier(.2,.7,.2,1);
   /* nombres antiguos que usan los estilos propios de algunos labs */
   --ink:var(--bg); --panel:var(--s1); --panel2:var(--s2); --muted:var(--fg2); --violet:var(--cian); --blue:var(--azul); --red:var(--alert);
@@ -16,7 +16,7 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--body);min-height:100vh;-webkit-font-smoothing:antialiased}
-::selection{background:var(--azul);color:#fff}
+::selection{background:var(--azul);color:var(--bg)}
 a{color:var(--enlace);text-underline-offset:3px;text-decoration-thickness:1px}
 :focus-visible{outline:2px solid var(--cian);outline-offset:2px;border-radius:4px}
 code{font:500 .92em/1.4 var(--mono);color:var(--fg);background:var(--s2);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
@@ -157,3 +157,30 @@ details.hint summary:hover{color:var(--fg)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .hecho::before{content:"";width:9px;height:5px;border:solid currentColor;border-width:0 0 2px 2px;transform:translateY(-2px) rotate(-45deg)}
+
+
+/* Estilo atrevido (27/10/2026): bordes gruesos cian, sombras desplazadas y letra display muy gruesa. */
+h1,h2,.lab h3,.win h2{font-family:var(--display);font-weight:900;font-stretch:112%;letter-spacing:-.02em}
+h1{font-weight:900}
+.top{border-bottom:0;margin-bottom:56px}
+.brand{font:900 22px/1 var(--display);color:var(--fg)}
+.brand .b{width:42px;height:42px;border:3px solid var(--cian)}
+.brand .sub{font:700 13px/1 var(--mono);background:var(--cian);color:var(--bg);padding:5px 8px;border-radius:6px}
+.top nav a{color:var(--fg);font-weight:700}
+.top nav a:hover{background:var(--cian);color:var(--bg)}
+.btn{color:var(--bg);border:3px solid var(--cian);border-radius:999px;font-family:var(--display);font-weight:800;text-transform:uppercase;box-shadow:5px 5px 0 var(--cian);transition:transform .15s,box-shadow .15s}
+.btn:hover{background:var(--cian);transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--cian)}
+.btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--cian)}
+.btn.ghost{background:var(--s1);color:var(--cian)}
+.btn.ghost:hover{background:var(--s2);color:var(--cian)}
+.evidence,.task,.brief,.win,.lab{border:3px solid var(--cian)!important;border-radius:20px!important;box-shadow:6px 6px 0 var(--cian);background:var(--s1)}
+.lab{margin-bottom:16px;padding:18px 20px!important}
+.lab:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--cian)}
+.chip{border:2px solid var(--cian)!important;color:var(--cian)}
+.chip.on{background:var(--cian)!important;color:var(--bg)!important}
+.chip.on span{color:var(--bg)!important}
+.search,.tools input,.tools select,.ans input{border:2px solid var(--cian)!important;background:var(--s1)!important;color:var(--fg)!important}
+.ans label{border:2px solid var(--line)!important}
+.ans label:has(input:checked){border-color:var(--cian)!important;background:var(--s2)}
+code{background:var(--s2);border-color:var(--line);color:var(--cian)}
+.brief{padding:18px 20px!important}
