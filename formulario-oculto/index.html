@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El formulario oculto · Labs N4zar1</title>
+<meta name="description" content="Reto de CSRF (Cross-Site Request Forgery): una web de ofertas envía en segundo plano un formulario a un banco y cambia el correo de sus clientes. Encuentra la web trampa, las cuentas afectadas, por qué viajó la cookie y el arreglo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El formulario oculto</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «No has pulsado nada… y tu contraseña ya no es tuya (CSRF)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> MiBanco, un banco ficticio (<code>mibanco.example</code>). Jueves 5/11. Varios clientes llaman porque ya no pueden recuperar su contraseña: alguien les ha cambiado el correo de la cuenta. Ninguno ha dado sus datos a nadie y todos dicen lo mismo: «Solo estaba mirando una web de ofertas». El banco te pasa el registro de su web, su cookie de sesión y un trozo de su código, y la página de ofertas que visitaban.</p>
+    <p><b>Tu misión:</b> descubre desde qué web se hizo, a cuántos clientes les cambiaron el correo, por qué funcionó y qué arreglo lo cierra. Chuleta: en un <i>CSRF</i> (Cross-Site Request Forgery) otra web hace que tu navegador envíe una petición a una web en la que tienes la sesión abierta; el navegador adjunta tu cookie y la web cree que eres tú. No hace falta ningún clic.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro de la web (mibanco.example) · 5/11, de 19:30 a 19:45</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (usuario, ruta, origin…)" aria-label="Buscar en el registro"><select id="s1" aria-label="Filtrar por Sec-Fetch-Site"><option value="">Cualquier Sec-Fetch-Site</option><option value="same-origin">Solo same-origin</option><option value="cross-site">Solo cross-site</option><option value="none">Solo none</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · La cookie de sesión y dos rutas del servidor del banco</h3></div>
+    <pre class="code">Set-Cookie: sesion=8f3a9c…; Path=/; Secure; HttpOnly; <b>SameSite=None</b>
+# 28/10: cambiado de Lax a None para que funcione el widget
+#        del comparador de un socio (socio-comparador.example)
+
+app.post('/cuenta/correo', requiereSesion, (req, res) =&gt; {
+  cambiarCorreo(req.usuario, req.body.correo);
+  res.send('Correo actualizado');
+});
+
+app.post('/cuenta/contrasena', requiereSesion, <b>comprobarTokenCSRF</b>, (req, res) =&gt; {
+  cambiarContrasena(req.usuario, req.body.nueva);
+  res.send('Contraseña actualizada');
+});</pre>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El código de la web de ofertas (ofertas-flash.example)</h3></div>
+    <pre class="code">&lt;h1&gt;⚡ OFERTAS FLASH: auriculares a 9 €&lt;/h1&gt;
+
+&lt;iframe name="nada" style="display:none"&gt;&lt;/iframe&gt;
+&lt;form id="f" target="nada" method="POST"
+      action="https://mibanco.example/cuenta/correo"&gt;
+  &lt;input type="hidden" name="correo" value="<b>recupera@trampa.example</b>"&gt;
+&lt;/form&gt;
+&lt;form id="g" target="nada" method="POST"
+      action="https://mibanco.example/cuenta/contrasena"&gt;
+  &lt;input type="hidden" name="nueva" value="Ofertas2026!"&gt;
+&lt;/form&gt;
+
+&lt;script&gt;
+  // nada más cargar, sin que el visitante pulse nada
+  <b>f.submit();</b>
+  setTimeout(() =&gt; g.submit(), 800);
+&lt;/script&gt;</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el banco: poner <code>comprobarTokenCSRF</code> en todas las rutas que cambian algo (no solo en <code>/cuenta/contrasena</code>); volver la cookie de sesión a <code>SameSite=Lax</code> (o <code>Strict</code>) y dar al widget del socio su propia cookie sin poder sobre la cuenta; rechazar en el servidor las peticiones que cambian algo con <code>Origin</code> de otro dominio o <code>Sec-Fetch-Site: cross-site</code>; pedir la contraseña actual (o un código en el móvil) para cambiar el correo; devolver el correo original a las 5 cuentas, cerrar sus sesiones y avisarles; y crear una alerta en el SIEM para picos de cambios de correo con el mismo Origin externo.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Banco, web de ofertas, personas, dominios, IPs y correos ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+const BAN = 'https://mibanco.example';
+const OFE = 'https://ofertas-flash.example';
+const reg = [
+  ['19:30:05', '198.51.100.23', 'marta_g', 'GET /cuenta/ajustes', '-', 'none', '-', '200'],
+  ['19:30:41', '198.51.100.23', 'marta_g', 'POST /cuenta/correo', BAN, 'same-origin', 'a81f…', '200'],
+  ['19:31:07', '203.0.113.9', 'lucia_92', 'POST /cuenta/correo', OFE, 'cross-site', '(falta)', '200'],
+  ['19:31:08', '203.0.113.9', 'lucia_92', 'POST /cuenta/contrasena', OFE, 'cross-site', '(falta)', '403'],
+  ['19:32:40', '192.0.2.140', 'pablo.r', 'POST /cuenta/correo', OFE, 'cross-site', '(falta)', '200'],
+  ['19:32:41', '192.0.2.140', 'pablo.r', 'POST /cuenta/contrasena', OFE, 'cross-site', '(falta)', '403'],
+  ['19:34:15', '198.51.100.77', '-', 'POST /cuenta/correo', OFE, 'cross-site', '(falta)', '302 → /login'],
+  ['19:35:02', '192.0.2.55', 'nuria_v', 'POST /cuenta/correo', OFE, 'cross-site', '(falta)', '200'],
+  ['19:35:03', '192.0.2.55', 'nuria_v', 'POST /cuenta/contrasena', OFE, 'cross-site', '(falta)', '403'],
+  ['19:36:10', '203.0.113.200', 'jorge.p', 'GET /cuenta/movimientos', '-', 'none', '-', '200'],
+  ['19:37:22', '198.51.100.31', 'ana.b', 'POST /cuenta/correo', OFE, 'cross-site', '(falta)', '200'],
+  ['19:38:45', '203.0.113.200', 'jorge.p', 'POST /pagos/transferir', BAN, 'same-origin', 'c03d…', '200'],
+  ['19:40:12', '192.0.2.99', 'sergio_m', 'POST /cuenta/correo', OFE, 'cross-site', '(falta)', '200'],
+  ['19:40:13', '192.0.2.99', 'sergio_m', 'POST /cuenta/contrasena', OFE, 'cross-site', '(falta)', '403'],
+  ['19:43:30', '198.51.100.23', 'marta_g', 'GET /cuenta/ajustes', '-', 'none', '-', '200'],
+];
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Usuario', 'Petición', 'Origin', 'Sec-Fetch-Site', 'csrf_token', 'Estado'],
+  rows: reg,
+  filters: [{el: $('q1'), test: q()}, {el: $('s1'), test: (r, v) => !v || r[5] === v}],
+});
+
+const solo = a => norm(a).replace(/\s/g, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+
+runLab('formulario-oculto', [
+  {q: '¿Desde qué web ajena llegaban los cambios de correo?', type: 'text', ph: 'dominio',
+   accept: a => solo(a) === 'ofertas-flash.example',
+   hint: 'Filtra el registro por «Solo cross-site» y mira la columna Origin de los POST /cuenta/correo.',
+   explain: '<b>ofertas-flash.example.</b> El navegador pone en <code>Origin</code> la web desde la que sale la petición. Un cambio de correo de tu banco nunca debería venir de una web de ofertas.'},
+  {q: '¿Qué cabecera, que añade el propio navegador, dice que la petición vino de OTRA web?', type: 'choice',
+   options: ['User-Agent', 'Content-Type: application/x-www-form-urlencoded', 'Sec-Fetch-Site: cross-site', 'Accept-Language: es-ES'], correct: 2,
+   explain: '<b>Sec-Fetch-Site: cross-site.</b> Es una cabecera «Fetch Metadata»: el navegador la pone solo y la web no la puede falsificar desde JavaScript. <code>same-origin</code> = desde la propia web; <code>none</code> = la abriste tú (barra de direcciones, marcador); <code>cross-site</code> = la ha disparado otra web. OWASP la recomienda para bloquear CSRF en el servidor.'},
+  {q: '¿A cuántos clientes les cambiaron el correo de verdad (POST /cuenta/correo con 200 desde la web ajena)?', type: 'text', ph: 'número',
+   accept: a => ['5', 'cinco'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Cuenta los POST /cuenta/correo con Origin ofertas-flash.example y estado 200. El de marta_g no cuenta: mírale el Origin y el token.',
+   explain: '<b>5:</b> lucia_92, pablo.r, nuria_v, ana.b y sergio_m. El cambio de marta_g es legítimo: <code>same-origin</code>, Origin del propio banco y con su token. La visita de las 19:34:15 no tenía sesión (ver pregunta 6).'},
+  {q: '¿A qué dominio de correo pasaron las cuentas? (el atacante podrá «recuperar la contraseña» desde ahí)', type: 'text', ph: 'dominio',
+   accept: a => solo(a).replace(/^.*@/, '') === 'trampa.example',
+   hint: 'Está en el formulario oculto de la evidencia 3.',
+   explain: '<b>trampa.example</b> (<code>recupera@trampa.example</code>). Con el correo cambiado, el atacante pide «He olvidado mi contraseña» y el enlace le llega a él: así la cuenta deja de ser tuya sin que nadie te haya robado la contraseña.'},
+  {q: 'Desde 2020, Chrome trata como SameSite=Lax las cookies que no dicen nada, y esas no viajan en un POST enviado desde otra web. ¿Por qué aquí sí viajó la cookie?', type: 'choice',
+   options: ['Porque las víctimas usaban un navegador antiguo', 'Porque el banco cambió su cookie a SameSite=None el 28/10: con None el navegador la envía desde cualquier web', 'Porque la cookie es HttpOnly', 'Porque la web de ofertas robó la cookie con JavaScript'], correct: 1,
+   explain: '<b>SameSite=None.</b> El «Lax por defecto» solo se aplica cuando la web no pone SameSite. Si la web dice <code>None</code> (y <code>Secure</code>), la cookie viaja en peticiones de otros sitios. Y nadie robó la cookie: <code>HttpOnly</code> impide leerla con JavaScript, pero el CSRF no necesita leerla, solo que el navegador la mande.'},
+  {q: 'La web de ofertas también intentó cambiar la contraseña (POST /cuenta/contrasena) y recibió 403. ¿Por qué esa sí falló?', type: 'choice',
+   options: ['Porque la contraseña nueva era débil', 'Porque esa ruta usa comprobarTokenCSRF: exige un token secreto que la web de ofertas no conoce', 'Porque la cookie no viajó en esa petición', 'Porque el navegador bloquea dos formularios seguidos'], correct: 1,
+   explain: '<b>El token.</b> El banco mete un valor secreto en cada formulario suyo y lo comprueba al recibirlo. La otra web puede hacer que tu navegador envíe la petición (con tu cookie), pero no puede leer tu página del banco para copiar el token. Lo tenían en <code>/cuenta/contrasena</code>… y se olvidaron de <code>/cuenta/correo</code>.'},
+  {q: 'A las 19:34:15 hay un POST /cuenta/correo desde la web de ofertas que acaba en 302 → /login. ¿Qué le pasó a ese visitante?', type: 'choice',
+   options: ['Que no tenía la sesión abierta en el banco: sin cookie, el banco no sabe de quién es la cuenta y lo manda a iniciar sesión', 'Que el WAF lo bloqueó', 'Que escribió mal su contraseña'], correct: 0,
+   explain: '<b>Sin sesión no hay CSRF.</b> El ataque usa tu sesión abierta: si no estás conectado a esa web, la petición llega sin nada que suplantar. Por eso cerrar sesión en las webs importantes cuando terminas también ayuda.'},
+  {q: '¿Qué arreglo cierra el agujero de verdad?', type: 'choice',
+   options: ['Poner un CAPTCHA en la web del banco', 'Comprobar el token CSRF en todas las rutas que cambian algo, volver la cookie a SameSite=Lax, rechazar Origin/Sec-Fetch-Site ajenos y pedir la contraseña actual para cambiar el correo', 'Cambiar /cuenta/correo a GET', 'Bloquear la IP de ofertas-flash.example'], correct: 1,
+   wrong: '✗ Eso no lo para. Piensa en lo que la otra web no puede saber ni falsificar.',
+   explain: '<b>Token + SameSite + Origin + reautenticación.</b> El token es la defensa principal (OWASP); SameSite y la comprobación de Origin/Sec-Fetch-Site son capas extra, y pedir la contraseña actual protege las acciones críticas. El CAPTCHA no es una defensa contra CSRF, pasar a GET lo empeora (Lax sí envía la cookie en un enlace) y la IP del visitante es la de la víctima, no la de la web de ofertas.'},
+], 'N4{token_csrf_en_todas_las_rutas}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
