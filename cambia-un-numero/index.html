@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambia un número · Labs N4zar1</title>
+<meta name="description" content="Reto de IDOR (Broken Access Control): una tienda online donde cambiando el número de la factura se ve la de otra persona. Encuentra quién enumeró las facturas, cuántas se llevó, qué falta en el código y cómo se arregla.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>Cambia un número</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Cambié un 4 por un 5… y vi la factura de otra persona (IDOR)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Tienda Olmo, una tienda online ficticia (<code>tienda.example</code>). Martes 3/11. Una clienta escribe enfadada: le ha llegado un correo de alguien que sabe su dirección, su teléfono y qué aspiradora compró. La tienda te pasa el registro de su web de esa mañana, un trozo de la tabla de facturas, el código que sirve las facturas y la alerta que saltó en su SIEM.</p>
+    <p><b>Tu misión:</b> descubre quién se llevó las facturas, cómo lo hizo, cuántas consiguió, qué falta en el código y qué arreglo lo cierra de verdad. Chuleta: un IDOR (Insecure Direct Object Reference) es cuando la web te da un objeto, como una factura, solo porque has puesto su número, sin comprobar que sea tuyo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro de la web (tienda.example) · 3/11, de 10:40 a 10:50</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (usuario, sesión, id…)" aria-label="Buscar en el registro"><select id="s1" aria-label="Filtrar por estado"><option value="">Cualquier estado</option><option value="200">Solo 200</option><option value="404">Solo 404</option><option value="401">Solo 401</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Base de datos › tabla facturas (trozo)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (id, cliente…)" aria-label="Buscar en las facturas"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El código que sirve las facturas (app.py)</h3></div>
+    <pre class="code">@app.get("/factura")
+def ver_factura():
+    usuario = sesion_actual()          # quién ha iniciado sesión
+    if usuario is None:
+        return "Inicia sesión", 401
+
+    id = int(request.args["id"])       # el número que viene en el enlace
+    f = db.facturas.get(id)
+    if f is None:
+        return "No existe", 404
+
+    <b>return render("factura.html", factura=f)</b></pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · SIEM › alerta del 3/11</h3></div>
+    <pre class="code">Regla:      Posible enumeración de objetos (IDOR)
+Condición:  misma sesión pide más de 20 valores distintos de id
+            en /factura en menos de 5 minutos
+Primera:    10:41:20      Última: 10:44:58
+Sesión:     7f2c91        Usuario: cliente_8812     IP: 203.0.113.66
+Acción:     solo alerta (no bloquea)
+Estado:     sin revisar</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría la tienda: añadir en <code>ver_factura</code> la comprobación de que <code>f.cliente</code> es el usuario de la sesión (y responder 403 o 404 si no lo es), en esta y en cualquier otra ruta que reciba un id (pedidos, direcciones, devoluciones); cerrar la sesión <code>7f2c91</code> y bloquear la cuenta <code>cliente_8812</code>; revisar el registro entero de esa sesión y de <code>203.0.113.66</code>; pasar la regla del SIEM de «solo alerta» a que alguien la mire en minutos; limitar cuántas facturas puede pedir una sesión por minuto; usar ids difíciles de adivinar como capa extra; y, al haber datos personales de terceros, valorar con su delegado de protección de datos si toca notificar la brecha y avisar a las personas afectadas.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, dominios, IPs y datos ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+// Registro: tráfico normal + la sesión 7f2c91 recorriendo ids seguidos.
+const BORRADAS = [1051, 1063, 1077]; // facturas anuladas: ya no existen
+const reg = [
+  ['10:40:12', '198.51.100.23', 'a91be0', 'lucia_m', 'GET /factura?id=1045', '200'],
+  ['10:40:31', '192.0.2.71', '-', '-', 'GET /factura?id=1046', '401'],
+  ['10:40:55', '203.0.113.66', '7f2c91', 'cliente_8812', 'GET /mis-pedidos', '200'],
+  ['10:41:02', '203.0.113.66', '7f2c91', 'cliente_8812', 'GET /factura?id=1044', '200'],
+];
+for (let id = 1045; id <= 1084; id++) {
+  const t = `10:${String(41 + Math.floor((20 + (id - 1045) * 5.6) / 60)).padStart(2, '0')}:${String(Math.floor(20 + (id - 1045) * 5.6) % 60).padStart(2, '0')}`;
+  reg.push([t, '203.0.113.66', '7f2c91', 'cliente_8812', `GET /factura?id=${id}`, BORRADAS.includes(id) ? '404' : '200']);
+  if (id === 1052) reg.push(['10:41:59', '192.0.2.140', 'c03d55', 'pablo.r', 'GET /factura?id=1052', '200']);
+  if (id === 1070) reg.push(['10:43:41', '198.51.100.9', 'e7a120', 'nuria_v', 'GET /mis-pedidos', '200']);
+}
+reg.push(['10:46:10', '198.51.100.23', 'a91be0', 'lucia_m', 'GET /mis-pedidos', '200']);
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Sesión', 'Usuario', 'Petición', 'Estado'],
+  rows: reg,
+  cls: r => r[3] === 'cliente_8812' && r[4].includes('/factura') ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}, {el: $('s1'), test: (r, v) => !v || r[5] === v}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['id', 'cliente', 'Nombre', 'Dirección', 'Teléfono', 'Pedido'],
+  rows: [
+    ['1043', 'jorge.p', 'Jorge Pardo Gil', 'Av. de la Paz 3, Sevilla', '6•• ••• 102', 'Cafetera'],
+    ['1044', 'cliente_8812', 'Daniel Ros', 'C/ Mayor 8, Murcia', '6•• ••• 655', 'Funda de móvil'],
+    ['1045', 'lucia_m', 'Lucía Martín Sanz', 'C/ del Olmo 14, 2.º A, Valencia', '6•• ••• 418', 'Aspiradora R-200'],
+    ['1046', 'ana.b', 'Ana Beltrán', 'Pza. Real 2, Zaragoza', '6•• ••• 230', 'Auriculares'],
+    ['1047', 'mario.c', 'Mario Cano', 'C/ Luna 21, Madrid', '6•• ••• 977', 'Freidora de aire'],
+    ['1051', '—', '(anulada)', '—', '—', '—'],
+    ['1052', 'pablo.r', 'Pablo Ruiz', 'C/ Ancha 5, León', '6•• ••• 341', 'Lámpara'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+runLab('cambia-un-numero', [
+  {q: '¿Qué usuario está pidiendo facturas una detrás de otra?', type: 'text', ph: 'usuario',
+   accept: a => ['cliente_8812', '7f2c91'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Mira la evidencia 4 o busca en el registro quién pide /factura?id= con números seguidos.',
+   explain: '<b>cliente_8812</b> (sesión <code>7f2c91</code>, IP <code>203.0.113.66</code>). Pide la 1044, la 1045, la 1046… cada pocos segundos: eso no lo hace una persona mirando sus compras.'},
+  {q: '¿Cuál es la única factura que es suya de verdad?', type: 'text', ph: 'id',
+   accept: a => norm(a).replace(/\s/g, '') === '1044',
+   hint: 'Busca cliente_8812 en la tabla de facturas (evidencia 2).',
+   explain: '<b>1044.</b> Es la que pidió justo después de entrar en «Mis pedidos». A partir de ahí fue sumando uno.'},
+  {q: '¿Cuántas facturas de otras personas descargó (respuesta 200)?', type: 'text', ph: 'número',
+   accept: a => norm(a).replace(/\s/g, '') === '37',
+   hint: 'Filtra el registro por cliente_8812 y «Solo 200». Cuenta solo las peticiones a /factura y no cuentes la suya (1044).',
+   explain: '<b>37.</b> Pidió de la 1045 a la 1084 (40 peticiones); 3 dieron 404 porque esas facturas estaban anuladas, y las otras 37 le devolvieron 200 con los datos de otra persona.'},
+  {q: 'Lucía (lucia_m) también pidió la 1045 a las 10:40. ¿Es sospechoso?', type: 'choice',
+   options: ['Sí: cualquier petición a /factura?id= es un ataque', 'No: la 1045 es suya, así que es su uso normal. Lo que delata el IDOR es pedir facturas que no son tuyas', 'No se puede saber con estas evidencias'], correct: 1,
+   explain: '<b>Es lo normal.</b> Que el número vaya en el enlace no es el fallo. El fallo es que el servidor se la da a cualquiera que la pida. Por eso al investigar se cruza quién pide con quién es el dueño.'},
+  {q: 'Mira el código (evidencia 3). ¿Qué comprobación falta?', type: 'choice',
+   options: ['Que el usuario haya iniciado sesión', 'Que la factura pertenezca al usuario de la sesión (f.cliente == usuario)', 'Que el id sea un número'], correct: 1,
+   wrong: '✗ Esa ya la hace. Lee línea a línea qué mira antes de devolver la factura.',
+   explain: '<b>El dueño.</b> Comprueba que hay sesión (401 si no) y que la factura existe (404), pero no que sea de quien la pide. Estar autenticado no es lo mismo que estar autorizado.'},
+  {q: '¿Qué datos personales de terceros quedaron expuestos?', type: 'choice',
+   options: ['Solo los importes', 'Nombre, dirección, teléfono y lo que compraron', 'Las contraseñas de los clientes'], correct: 1,
+   explain: '<b>Nombre, dirección, teléfono y pedido.</b> Con eso se pueden hacer estafas muy creíbles («Hola Lucía, sobre tu aspiradora R-200…»). Las contraseñas no están en la factura.'},
+  {q: '¿En qué categoría del OWASP Top 10 entra este fallo?', type: 'choice',
+   options: ['A01 · Broken Access Control (control de acceso roto)', 'Inyección (SQL)', 'Fallos criptográficos'], correct: 0,
+   explain: '<b>A01 · Broken Access Control</b>, la número uno del OWASP Top 10 (2021 y 2025). OWASP lo describe así: ver o editar la cuenta de otro «proporcionando su identificador único (insecure direct object references)». En APIs se llama BOLA (API1).'},
+  {q: 'Un compañero propone: «cambiemos los ids por códigos imposibles de adivinar (UUID) y listo». ¿Basta?', type: 'choice',
+   options: ['Sí: si no se puede adivinar el número, no hay IDOR', 'No: ayuda, pero si un enlace se filtra (un correo reenviado, un historial, un registro) se abre igual. Hay que comprobar el dueño en el servidor en cada petición', 'No, hay que cifrar la base de datos'], correct: 1,
+   explain: '<b>Ayuda, pero no basta.</b> La guía de OWASP contra IDOR lo dice claro: aunque los identificadores sean complejos, la comprobación de acceso sigue siendo imprescindible. Los UUID son una capa extra.'},
+  {q: '¿Qué código HTTP debería devolver el servidor cuando la factura existe pero no es tuya? (el número)', type: 'text', ph: 'código',
+   accept: a => ['403', '404'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Es de la familia 4xx: «prohibido» o «no encontrado».',
+   explain: '<b>403 o 404.</b> 403 (Prohibido) es lo directo; muchas webs devuelven 404 para no confirmar siquiera que esa factura existe. Lo importante es que nunca sea 200.'},
+], 'N4{comprueba_el_dueno_en_cada_peticion}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
