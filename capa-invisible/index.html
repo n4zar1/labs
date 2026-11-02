@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La capa invisible · Labs N4zar1</title>
+<meta name="description" content="Reto de clickjacking (UI redressing): una web de premios carga la página de transferencias de un banco en un iframe invisible. Encuentra la web cebo, a los clientes que cayeron, la cabecera que falta y el arreglo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La capa invisible</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Pulsaste “Ver vídeo”… pero ese botón no era el que viste (clickjacking)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Banco Ana, un banco ficticio (<code>banco-ana.example</code>). Miércoles 4/11. Varios clientes juran que no han hecho una transferencia de 500 € que aparece en su cuenta. Todos dicen lo mismo: «Solo pulsé “Ver vídeo” en una web de premios». Nadie les ha robado la contraseña y no hay virus en sus móviles. El banco te pasa el registro de su web, las cabeceras de dos de sus páginas, el código de la web de premios y el informe de un escáner.</p>
+    <p><b>Tu misión:</b> descubre desde qué web se hizo, quién cayó, por qué funcionó y qué arreglo lo cierra. Chuleta: en un <i>clickjacking</i> una web carga otra web real dentro de un marco (<code>iframe</code>) invisible y coloca el botón de verdad justo encima de su botón cebo. Tu clic cae en la web real, con tu sesión abierta.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro de la web (banco-ana.example) · 4/11, de 19:30 a 19:40</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (usuario, ruta, referer…)" aria-label="Buscar en el registro"><select id="s1" aria-label="Filtrar por destino"><option value="">Cualquier Sec-Fetch-Dest</option><option value="document">Solo document</option><option value="iframe">Solo iframe</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Cabeceras de respuesta de dos páginas del banco</h3></div>
+    <pre class="code">GET /login
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+X-Frame-Options: DENY
+Strict-Transport-Security: max-age=31536000
+
+GET /pagos/transferir
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Set-Cookie: sesion=8f3a9c…; Secure; HttpOnly; <b>SameSite=None</b></pre>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El código de la web de premios (premios-gratis.example)</h3></div>
+    <pre class="code">&lt;h1&gt;🎁 ¡Has ganado un premio!&lt;/h1&gt;
+&lt;button id="cebo"&gt;▶ Ver vídeo&lt;/button&gt;
+
+&lt;iframe id="capa"
+  src="https://banco-ana.example/pagos/transferir?a=ES91…4821&amp;importe=500"&gt;
+&lt;/iframe&gt;
+
+&lt;style&gt;
+  #capa  { position: absolute; top: 0; left: 0;
+           width: 100%; height: 900px;
+           <b>opacity: 0;</b> z-index: 2; }
+  #cebo  { position: absolute; top: 610px; left: 200px;
+           z-index: 1; }   /* justo debajo del botón «Transferir» */
+&lt;/style&gt;</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Escáner web (pasivo) · banco-ana.example</h3></div>
+    <pre class="code">Alerta:    Missing Anti-clickjacking Header   (regla 10020-1)
+Riesgo:    Medio
+URL:       https://banco-ana.example/pagos/transferir
+Detalle:   The response does not protect against 'ClickJacking' attacks.
+           It should include either Content-Security-Policy with
+           'frame-ancestors' directive or X-Frame-Options.
+Fecha:     12/10 (informe sin revisar)</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el banco: añadir <code>Content-Security-Policy: frame-ancestors 'self'</code> (o <code>'none'</code>) a todas sus respuestas, no solo a <code>/login</code>, y <code>X-Frame-Options: DENY</code> para navegadores antiguos; pasar la cookie de sesión a <code>SameSite=Lax</code> o <code>Strict</code>; pedir una confirmación de verdad (código en el móvil) para transferencias y cambios sensibles; bloquear la cuenta <code>ES91…4821</code> e intentar recuperar las transferencias; avisar a los clientes afectados; crear una alerta para peticiones a <code>/pagos/</code> con <code>Sec-Fetch-Dest: iframe</code> desde otra web; y revisar los informes del escáner, que llevaba avisando desde el 12/10.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Banco, web de premios, personas, dominios, IPs y cuentas ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+const CEBO = 'https://premios-gratis.example/';
+const TR = 'https://banco-ana.example/pagos/transferir?a=ES91…4821&importe=500';
+const reg = [
+  ['19:30:12', '198.51.100.23', 'marta_g', 'GET /login', 'document', '(ninguno)', '200'],
+  ['19:30:40', '198.51.100.23', 'marta_g', 'GET /cuentas', 'document', 'https://banco-ana.example/login', '200'],
+  ['19:31:05', '203.0.113.9', 'lucia_92', 'GET /pagos/transferir?a=ES91…4821&importe=500', 'iframe', CEBO, '200'],
+  ['19:31:07', '203.0.113.9', 'lucia_92', 'POST /pagos/transferir', 'iframe', TR, '200'],
+  ['19:31:50', '198.51.100.23', 'marta_g', 'GET /pagos/transferir', 'document', 'https://banco-ana.example/cuentas', '200'],
+  ['19:32:31', '198.51.100.23', 'marta_g', 'POST /pagos/transferir', 'document', 'https://banco-ana.example/pagos/transferir', '200'],
+  ['19:33:18', '192.0.2.140', 'pablo.r', 'GET /pagos/transferir?a=ES91…4821&importe=500', 'iframe', CEBO, '200'],
+  ['19:34:02', '198.51.100.77', '-', 'GET /login', 'iframe', CEBO, '200'],
+  ['19:34:40', '192.0.2.55', 'nuria_v', 'GET /pagos/transferir?a=ES91…4821&importe=500', 'iframe', CEBO, '200'],
+  ['19:34:43', '192.0.2.55', 'nuria_v', 'POST /pagos/transferir', 'iframe', TR, '200'],
+  ['19:36:10', '203.0.113.200', 'jorge.p', 'GET /cuentas', 'document', '(ninguno)', '200'],
+  ['19:37:22', '198.51.100.31', 'ana.b', 'GET /pagos/transferir?a=ES91…4821&importe=500', 'iframe', CEBO, '200'],
+  ['19:37:24', '198.51.100.31', 'ana.b', 'POST /pagos/transferir', 'iframe', TR, '200'],
+  ['19:38:45', '203.0.113.200', 'jorge.p', 'GET /tarjetas', 'document', 'https://banco-ana.example/cuentas', '200'],
+];
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Usuario', 'Petición', 'Sec-Fetch-Dest', 'Referer', 'Estado'],
+  rows: reg,
+  filters: [{el: $('q1'), test: q()}, {el: $('s1'), test: (r, v) => !v || r[4] === v}],
+});
+
+const solo = a => norm(a).replace(/\s/g, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+
+runLab('capa-invisible', [
+  {q: '¿Desde qué web ajena se cargaba la página de transferencias del banco?', type: 'text', ph: 'dominio',
+   accept: a => solo(a) === 'premios-gratis.example',
+   hint: 'Filtra el registro por «Solo iframe» y mira la columna Referer de las peticiones GET.',
+   explain: '<b>premios-gratis.example.</b> Es la web cebo del «Ver vídeo». El banco nunca enlaza su página de pagos desde ahí: si llega con ese Referer, alguien la ha metido dentro de otra web.'},
+  {q: '¿Qué cabecera de la petición delata que la página se abrió DENTRO de un marco y no como página normal?', type: 'choice',
+   options: ['User-Agent', 'Sec-Fetch-Dest: iframe', 'Content-Type: text/html', 'Strict-Transport-Security'], correct: 1,
+   explain: '<b>Sec-Fetch-Dest: iframe.</b> El navegador la añade solo y dice para qué se pidió el recurso: <code>document</code> si lo abres tú en la pestaña, <code>iframe</code> si otra página lo carga en un marco. Junto con un Referer de otra web, es la huella del clickjacking.'},
+  {q: '¿Cuántos clientes llegaron a hacer la transferencia (POST con 200) desde el marco invisible?', type: 'text', ph: 'número',
+   accept: a => ['3', 'tres'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Cuenta los POST /pagos/transferir con Sec-Fetch-Dest iframe. El de marta_g no cuenta: mírale el destino y el Referer.',
+   explain: '<b>3:</b> lucia_92, nuria_v y ana.b (1.500 € en total). pablo.r cargó el marco pero no pulsó. La transferencia de marta_g es legítima: <code>document</code> y Referer del propio banco, y tardó más de 40 s en rellenarla; las otras salen a los 2–3 segundos de cargar la página.'},
+  {q: '¿A qué cuenta iban todas las transferencias? (los 4 últimos dígitos)', type: 'text', ph: '4 dígitos',
+   accept: a => norm(a).replace(/\s/g, '').endsWith('4821'),
+   hint: 'Está en la URL que carga el iframe (evidencia 1 o 3).',
+   explain: '<b>ES91…4821.</b> La web cebo rellena el destinatario y el importe en el enlace; a la víctima solo le falta un clic en «Transferir». Es la cuenta que hay que bloquear y de la que intentar recuperar el dinero.'},
+  {q: 'Mira el código de la web de premios. ¿Qué hace invisible la página del banco?', type: 'choice',
+   options: ['z-index: 2', 'opacity: 0', 'position: absolute', 'height: 900px'], correct: 1,
+   wrong: '✗ Esa propiedad la coloca, pero no la esconde. Busca la que la vuelve transparente.',
+   explain: '<b>opacity: 0.</b> El marco está ahí, encima (<code>z-index: 2</code>) y recibe los clics, pero no se ve. El botón cebo queda debajo, justo donde está «Transferir».'},
+  {q: 'Una visita sin sesión (19:34:02) intentó cargar /login en el marco. ¿Por qué esa página no le sirvió y /pagos/transferir sí?', type: 'choice',
+   options: ['Porque /login usa HTTPS y /pagos/transferir no', 'Porque /login responde con X-Frame-Options: DENY y el navegador no la pinta en un marco; /pagos/transferir no lleva ninguna cabecera que lo prohíba', 'Porque /login pide contraseña'], correct: 1,
+   explain: '<b>La cabecera solo estaba en /login.</b> El navegador obedece <code>X-Frame-Options: DENY</code> y deja el marco vacío. La página de pagos no tenía ni esa ni <code>frame-ancestors</code>. Y el escáner lo avisó (evidencia 4) el 12/10.'},
+  {q: '¿Cuál es el arreglo recomendado hoy para que ninguna web ajena pueda meter las páginas del banco en un marco?', type: 'choice',
+   options: ['Content-Security-Policy: frame-ancestors \'self\' en todas las respuestas (y X-Frame-Options: DENY para navegadores antiguos)', 'Access-Control-Allow-Origin: banco-ana.example', 'Cambiar el botón «Transferir» de sitio cada día', 'Bloquear con JavaScript el botón derecho'], correct: 0,
+   explain: '<b>frame-ancestors.</b> Es la directiva de CSP que dice quién puede enmarcar tu página (<code>\'self\'</code>: solo tu propia web; <code>\'none\'</code>: nadie). <code>X-Frame-Options</code> es la versión antigua: si hay frame-ancestors, los navegadores actuales la ignoran, pero no estorba. CORS (Access-Control-Allow-Origin) no tiene nada que ver con los marcos.'},
+  {q: 'La cookie de sesión del banco es SameSite=None. ¿Qué cambia si pasa a SameSite=Lax?', type: 'choice',
+   options: ['Nada, SameSite solo sirve contra XSS', 'Dentro de un marco cargado por otra web, el navegador no envía la cookie: el banco ve a un visitante sin sesión y la transferencia no se hace', 'La cookie se borra al cerrar el navegador'], correct: 1,
+   explain: '<b>La sesión no entra en el marco.</b> Con Lax o Strict la cookie no viaja en peticiones de un iframe de otro sitio. Es una buena capa extra, pero no sustituye a frame-ancestors: no impide enmarcar y no protege acciones que no necesitan sesión.'},
+], 'N4{frame_ancestors_self_en_todas_las_paginas}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
