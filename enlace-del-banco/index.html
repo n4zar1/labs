@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El enlace del banco · Labs N4zar1</title>
+<meta name="description" content="Reto de redirección abierta (open redirect, CWE-601): un correo con un enlace que empieza de verdad por el dominio de un banco ficticio y acaba en una web falsa. Encuentra el destino, el parámetro, a cuántos llevó, quién entró en las cuentas y el arreglo.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El enlace del banco</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «El enlace era de tu banco. De verdad. Y aun así te robaron (redirección abierta)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> TuBanco, un banco ficticio (<code>www.tubanco.example</code>). Sábado 7/11. Varios clientes dicen que alguien ha entrado en su banca online. Todos recibieron un correo de «TuBanco» y juran que miraron el enlace antes de pulsar: «Empezaba por www.tubanco.example, era el de verdad». Tienen razón. El banco te pasa el correo, el registro de su web, el código de su página de salida y los inicios de sesión de esa tarde.</p>
+    <p><b>Tu misión:</b> descubre adónde acababan los clientes, qué parte del enlace lo decidía, a cuántos llevó, quién entró en las cuentas y qué arreglo lo cierra. Chuleta: en una <i>redirección abierta</i> (open redirect, CWE-601) una web reenvía al visitante a la dirección que venga en un parámetro del enlace, sin comprobar que sea suya. El enlace empieza por el dominio bueno… y acaba en otro.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · El correo que recibieron</h3></div>
+    <pre class="code">De: TuBanco &lt;avisos@tubanco-avisos.example&gt;
+Asunto: Revisa un pago de 489,90 €
+
+Hola, Lucía:
+Hemos detectado un pago de 489,90 € con tu tarjeta.
+Si no lo reconoces, revísalo aquí antes de 24 horas:
+
+  [ Revisar el pago ]
+  → <b>https://www.tubanco.example/salir?url=https%3A%2F%2Ftubanco-seguro.example%2Flogin</b>
+
+Atentamente, el equipo de TuBanco</pre>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Registro de la web (www.tubanco.example) · 7/11, de 19:30 a 19:45</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (ruta, referer, location…)" aria-label="Buscar en el registro"><select id="s2" aria-label="Filtrar por ruta"><option value="">Todas las rutas</option><option value="/salir">Solo /salir</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El código de la página de salida (/salir)</h3></div>
+    <pre class="code">// «Salir» del banco hacia otra página (lo usan la web de ayuda y los anuncios)
+app.get('/salir', (req, res) =&gt; {
+  <b>res.redirect(req.query.url);</b>   // 302 a lo que diga ?url=
+});
+
+// Propuesta de un desarrollador para arreglarlo (aún no aplicada):
+// if (req.query.url.startsWith('https://www.tubanco.example')) res.redirect(req.query.url);</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Inicios de sesión en la banca online · 7/11, de 19:30 a 19:50</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (usuario, IP…)" aria-label="Buscar en los inicios de sesión"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría el banco: cambiar <code>/salir</code> para que solo acepte rutas relativas del propio banco (<code>/cuenta…</code>) o un identificador que el servidor traduce a una URL fija; si de verdad hay que salir, comparar el dominio ya parseado con una lista exacta (<code>www.tubanco.example</code>, <code>ayuda.tubanco.example</code>), nunca con <code>startsWith</code>; mostrar una página «Vas a salir de TuBanco» con el destino visible; cerrar las sesiones abiertas desde 203.0.113.66, obligar a cambiar la contraseña a las cuentas afectadas y avisarles; pedir la retirada de <code>tubanco-seguro.example</code>; y crear una alerta en el SIEM para <code>/salir</code> con destinos que no sean del banco.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Banco, web falsa, personas, dominios, IPs y correos ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+const MAL = 'GET /salir?url=https%3A%2F%2Ftubanco-seguro.example%2Flogin';
+const FAL = 'https://tubanco-seguro.example/login';
+const WM = 'https://webmail.correo.example/';
+const reg = [
+  ['19:30:41', '198.51.100.23', 'GET /salir?url=/cuenta/movimientos', 'https://www.tubanco.example/', '302', '/cuenta/movimientos'],
+  ['19:32:15', '203.0.113.14', MAL, WM, '302', FAL],
+  ['19:32:40', '192.0.2.77', 'GET /salir?url=https%3A%2F%2Fayuda.tubanco.example%2Ftarjetas', 'https://www.tubanco.example/ayuda', '302', 'https://ayuda.tubanco.example/tarjetas'],
+  ['19:33:05', '198.51.100.140', MAL, WM, '302', FAL],
+  ['19:33:48', '192.0.2.201', MAL, WM, '302', FAL],
+  ['19:35:10', '203.0.113.200', 'GET /salir?url=/tarjetas', 'https://www.tubanco.example/', '302', '/tarjetas'],
+  ['19:36:22', '198.51.100.9', MAL, WM, '302', FAL],
+  ['19:38:51', '192.0.2.15', MAL, '-', '302', FAL],
+  ['19:41:30', '198.51.100.23', 'GET /cuenta/movimientos', '-', '200', '-'],
+  ['19:43:02', '203.0.113.200', 'GET /cuenta/tarjetas', '-', '200', '-'],
+];
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'IP', 'Petición', 'Referer', 'Estado', 'Location'],
+  rows: reg,
+  filters: [{el: $('q2'), test: q()}, {el: $('s2'), test: (r, v) => !v || r[2].includes(v)}],
+});
+
+const ini = [
+  ['19:31:10', 'lucia.garcia', '203.0.113.14', 'Correcto'],
+  ['19:34:10', 'lucia.garcia', '203.0.113.66', 'Correcto'],
+  ['19:35:02', 'pablo.r', '203.0.113.66', 'Correcto'],
+  ['19:35:40', 'jorge.p', '203.0.113.200', 'Correcto'],
+  ['19:37:40', 'nuria_v', '203.0.113.66', 'Contraseña incorrecta'],
+  ['19:40:12', 'ana.b', '203.0.113.66', 'Correcto'],
+  ['19:44:30', 'sergio_m', '203.0.113.66', 'Correcto'],
+  ['19:46:05', 'marta_g', '198.51.100.23', 'Correcto'],
+];
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'Usuario', 'IP', 'Resultado'],
+  rows: ini,
+  filters: [{el: $('q4'), test: q()}],
+});
+
+const solo = a => norm(a).replace(/\s/g, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+
+runLab('enlace-del-banco', [
+  {q: '¿A qué dominio acababan de verdad los clientes que pulsaban el enlace?', type: 'text', ph: 'dominio',
+   accept: a => solo(a) === 'tubanco-seguro.example',
+   hint: 'Mira la columna Location de las peticiones a /salir que vienen del webmail.',
+   explain: '<b>tubanco-seguro.example.</b> El enlace empieza por <code>www.tubanco.example</code>, pero la web del banco responde con un <code>302</code> y <code>Location: https://tubanco-seguro.example/login</code>: el navegador salta solo a la web falsa, que copia el login del banco.'},
+  {q: '¿Qué parámetro del enlace decide adónde te manda la web del banco?', type: 'text', ph: 'nombre del parámetro',
+   accept: a => ['url', '?url', 'url='].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Lo que va detrás de /salir? en el enlace del correo. Pista: %3A%2F%2F es «://» codificado.',
+   explain: '<b>url.</b> El código de <code>/salir</code> hace <code>res.redirect(req.query.url)</code>: redirige a lo que traiga <code>?url=</code> sin comprobar nada. Además va codificado (<code>%3A%2F%2F</code> = <code>://</code>), así que a simple vista se nota aún menos que dentro hay otra dirección.'},
+  {q: '¿Por qué el filtro del correo y los clientes se fiaron del enlace?', type: 'choice',
+   options: ['Porque el enlace llevaba HTTPS y candado', 'Porque el enlace empezaba de verdad por el dominio del banco: quien mira solo el dominio (personas y muchos filtros) ve una web de confianza', 'Porque el correo venía de avisos@tubanco.example', 'Porque la web falsa tenía un certificado del banco'], correct: 1,
+   explain: '<b>El dominio era el de verdad.</b> Por eso la redirección abierta es tan útil para el phishing: el consejo «mira el dominio antes de pulsar» se cumple. Microsoft describió en 2021 una campaña real que usaba enlaces de redirección de webs conocidas para colarse en los filtros del correo, que miran el dominio y no los parámetros. Ojo: el remitente era <code>tubanco-avisos.example</code>, no el banco.'},
+  {q: '¿Cuántas veces mandó la web del banco a alguien a la web falsa en ese rato?', type: 'text', ph: 'número',
+   accept: a => ['5', 'cinco'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Filtra por «Solo /salir» y cuenta los 302 con Location hacia la web falsa. Las de /cuenta, /tarjetas y ayuda.tubanco.example son del propio banco.',
+   explain: '<b>5</b> (19:32:15, 19:33:05, 19:33:48, 19:36:22 y 19:38:51). Cuatro llegan con Referer del webmail y una sin Referer (abierta desde una app de correo). Así lo detectaría yo en el SIEM: peticiones a <code>/salir</code> cuyo destino no es un dominio del banco, y un pico de ellas en pocos minutos desde un correo.'},
+  {q: 'En los inicios de sesión, ¿desde qué IP entra alguien en varias cuentas distintas justo después de los clics?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.66',
+   hint: 'Busca una IP que se repita con usuarios diferentes en la evidencia 4.',
+   explain: '<b>203.0.113.66.</b> Es el atacante usando las contraseñas que la gente escribió en la web falsa. Una misma IP entrando en cuentas de personas distintas en pocos minutos es una alerta clásica.'},
+  {q: '¿En cuántas cuentas consiguió entrar esa IP?', type: 'text', ph: 'número',
+   accept: a => ['4', 'cuatro'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Cuenta los «Correcto» de esa IP. Uno de sus intentos falló.',
+   explain: '<b>4:</b> lucia.garcia, pablo.r, ana.b y sergio_m. Con nuria_v falló (contraseña incorrecta: quizá se dio cuenta y escribió otra). Los demás inicios son de los propios clientes desde sus IPs de siempre.'},
+  {q: 'Un desarrollador propone el arreglo de la evidencia 3: redirigir solo si url empieza por «https://www.tubanco.example». ¿Por qué no basta?', type: 'choice',
+   options: ['Porque es demasiado lento', 'Porque «https://www.tubanco.example.tubanco-seguro.example/login» también empieza así, y ese dominio es del atacante', 'Porque bloquearía /cuenta/movimientos', 'Sí basta: es la solución recomendada'], correct: 1,
+   explain: '<b>Comparar el principio del texto no es comparar el dominio.</b> <code>www.tubanco.example.tubanco-seguro.example</code> es un subdominio de la web falsa y pasa el <code>startsWith</code>. OWASP pide parsear la URL y comparar esquema, host y puerto exactos con una lista blanca, sin comparaciones de prefijo o sufijo.'},
+  {q: '¿Qué arreglo cierra la redirección abierta de verdad?', type: 'choice',
+   options: ['Poner un CAPTCHA en /salir', 'Bloquear la IP 203.0.113.66', 'Aceptar solo rutas relativas del banco o una lista exacta de dominios permitidos, y mostrar una página «Vas a salir de TuBanco» con el destino', 'Codificar la URL dos veces'], correct: 2,
+   wrong: '✗ Eso no lo para. Piensa en qué decide el destino y quién lo controla.',
+   explain: '<b>Lista blanca + rutas relativas + aviso</b> (OWASP Unvalidated Redirects and Forwards Cheat Sheet, CWE-601). Bloquear la IP solo frena a este atacante; el CAPTCHA no cambia el destino; y codificar no valida nada. Y tú, como usuario: mira dónde ACABAS, la dirección de la página donde escribes la contraseña.'},
+], 'N4{mira_donde_acabas}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
