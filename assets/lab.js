@@ -19,6 +19,7 @@ const LABS = [
   {id: 'foto-borrada', ic: '💾', title: 'La tarjeta formateada', desc: 'Álex formateó la SD de su cámara antes de venderla: abre sus bytes, busca la firma de las fotos y recupera lo que «había borrado», DNI incluido.', level: 'Fácil', lvl: 'easy', mins: 10, video: 'Lo formateaste… y tus fotos siguen ahí', cat: 'movil', pub: '2026-10-26T19:30:00+01:00'},
   {id: 'de-donde-vino', ic: '📥', title: '¿De dónde vino?', desc: 'Al antivirus le saltó una descarga y Pablo no sabe de dónde la bajó: lee la etiqueta oculta de sus seis descargas, cruza el aviso y su correo, y descubre de qué web salió.', level: 'Medio', lvl: 'mid', mins: 10, video: '¿De qué web salió este virus?', cat: 'incidentes', pub: '2026-10-27T19:30:00+01:00'},
   {id: 'proceso-impostor', ic: '🦠', title: '¿Cuál es el impostor?', desc: 'Un portátil lento y un antivirus que dice «Sin amenazas»: lee el árbol de procesos de Process Explorer, su ruta, su firma y VirusTotal, y descubre qué svchost.exe no es de Windows, quién lo lanzó y con quién habla.', level: 'Medio', lvl: 'mid', mins: 12, video: 'Este svchost no es de Windows', cat: 'incidentes', pub: '2026-10-28T19:30:00+01:00'},
+  {id: 'comentario-trampa', ic: '💬', title: 'Caza el comentario trampa', desc: 'Un foro de recetas donde roban cuentas sin contraseña: encuentra el comentario que es un XSS, la regla del WAF que lo vio y por qué no lo paró, adónde fueron las cookies y qué arreglo cierra el agujero.', level: 'Medio', lvl: 'mid', mins: 12, video: 'Esto no es un comentario: es un programa (XSS)', cat: 'web', pub: '2026-11-02T19:30:00+01:00'},
 ];
 
 // A lab with `pub` (ISO date) stays hidden until its video goes live; the page unlocks itself at that moment.
@@ -54,6 +55,7 @@ const CATS = [
   {id: 'redes', ic: '🛜', name: 'Redes y dispositivos'},
   {id: 'incidentes', ic: '🔎', name: 'Investigación de incidentes'},
   {id: 'ia', ic: '🤖', name: 'Inteligencia artificial'},
+  {id: 'web', ic: '🌐', name: 'Webs y aplicaciones'},
 ];
 const LEVELS = [['easy', 'Fácil'], ['mid', 'Medio'], ['hard', 'Difícil']];
 const madridDay = ms => new Date(ms).toLocaleDateString('es-ES', {timeZone: 'Europe/Madrid'});

