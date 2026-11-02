@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sube una carpeta · Labs N4zar1</title>
+<meta name="description" content="Reto de path traversal (CWE-22): una web de descargas que sirve archivos por su nombre. Encuentra quién salió de la carpeta, cómo se saltó el filtro, qué archivo se llevó, qué vio el WAF y qué arreglo lo cierra.">
+<meta name="theme-color" content="#040a1c">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>Sube una carpeta</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Tres caracteres… y la web me dio sus contraseñas (path traversal)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Facturas Olmo, una empresa ficticia que deja a sus clientes descargar facturas en <code>descargas.example/ver?archivo=factura.pdf</code>. Viernes 6/11. Esta mañana alguien ha entrado en su base de datos con el usuario de la propia web, y nadie sabe de dónde sacó la contraseña. Te pasan el registro del servidor con lo que marcó su WAF (en modo «solo detectar»), cómo están las carpetas del servidor, el código que sirve los archivos y los accesos a la base de datos.</p>
+    <p><b>Tu misión:</b> descubre quién salió de la carpeta de descargas, cómo se saltó el filtro, cuántas carpetas subió, qué archivo se llevó y qué arreglo lo cierra de verdad. Chuleta: en una ruta, <code>../</code> significa «la carpeta de arriba». Si la web pega lo que escribes a su carpeta sin comprobarlo, cada <code>../</code> te saca un piso. Eso es un path traversal (CWE-22).</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro del servidor + WAF (OWASP CRS, solo detecta) · 6/11, de 09:10 a 09:20</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, archivo, regla…)" aria-label="Buscar en el registro"><select id="s1" aria-label="Filtrar por estado"><option value="">Cualquier estado</option><option value="200">Solo 200</option><option value="400">Solo 400</option><option value="404">Solo 404</option></select><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Carpetas del servidor</h3></div>
+    <pre class="code">/app/
+├── config/
+│   └── .env                 ← usuario y contraseña de la base de datos, contraseña del correo
+└── web/
+    └── estaticos/
+        └── descargas/       ← la única carpeta que la web debería servir
+            ├── factura.pdf
+            ├── contrato.pdf
+            └── garantia.pdf</pre>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El código que sirve los archivos (app.py)</h3></div>
+    <pre class="code">DESCARGAS = "/app/web/estaticos/descargas/"
+
+@app.get("/ver")
+def ver():
+    crudo = request.query_string.decode()     # la URL tal y como llega
+    if "../" in crudo:                         # filtro casero
+        return "Petición no válida", 400
+
+    archivo = request.args["archivo"]          # aquí ya viene decodificado
+    <b>return send_file(DESCARGAS + archivo)</b></pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Base de datos › accesos del 6/11</h3></div>
+    <pre class="code">09:31:44  usuario=descargas_app  origen=203.0.113.45  OK   (la web siempre conecta desde 10.0.0.12)
+09:32:10  usuario=descargas_app  SELECT * FROM clientes   (12.408 filas)</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Facturas Olmo: cambiar ya la contraseña de la base de datos y la del correo (las del <code>.env</code> ya no son secretas) y cortar el acceso de <code>203.0.113.45</code>; dejar de construir la ruta con lo que manda el usuario (lista blanca de archivos o ids) y, si no queda otra, normalizar la ruta y comprobar que sigue dentro de <code>descargas/</code>; quitar el filtro casero, que da falsa seguridad; que el usuario con el que corre la web no pueda leer <code>config/</code>; sacar los secretos de cualquier sitio que la web pueda servir; poner el WAF en modo bloqueo y alertar cuando una regla 930xxx coincida con un 200; y, como se ha leído la tabla de clientes, valorar con su delegado de protección de datos si toca notificar la brecha.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, dominios, IPs, rutas y contraseñas ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const A = '203.0.113.45';
+const reg = [
+  ['09:10:03', '198.51.100.23', 'GET /ver?archivo=factura.pdf', '200', '48 KB', '—'],
+  ['09:10:41', '192.0.2.71', 'GET /ver?archivo=contrato.pdf', '200', '112 KB', '—'],
+  ['09:11:15', A, 'GET /ver?archivo=factura.pdf', '200', '48 KB', '—'],
+  ['09:11:58', A, 'GET /ver?archivo=../factura.pdf', '400', '0,1 KB', '930110'],
+  ['09:12:20', A, 'GET /ver?archivo=../../config/.env', '400', '0,1 KB', '930100 930110'],
+  ['09:12:47', '198.51.100.9', 'GET /ver?archivo=garantia.pdf', '200', '75 KB', '—'],
+  ['09:13:30', A, 'GET /ver?archivo=%2e%2e%2fconfig%2f.env', '404', '0,1 KB', '930110'],
+  ['09:13:52', A, 'GET /ver?archivo=%2e%2e%2f%2e%2e%2fconfig%2f.env', '404', '0,1 KB', '930100 930110'],
+  ['09:14:09', A, 'GET /ver?archivo=%2e%2e%2f%2e%2e%2f%2e%2e%2fconfig%2f.env', '200', '0,3 KB', '930100 930110'],
+  ['09:14:40', A, 'GET /ver?archivo=%2e%2e%2f%2e%2e%2f%2e%2e%2fconfig%2fcopia.sql', '404', '0,1 KB', '930100 930110'],
+  ['09:15:22', '192.0.2.140', 'GET /ver?archivo=factura.pdf', '200', '48 KB', '—'],
+  ['09:17:05', '198.51.100.23', 'GET /ver?archivo=contrato.pdf', '200', '112 KB', '—'],
+];
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Petición', 'Estado', 'Tamaño', 'Reglas WAF'],
+  rows: reg,
+  cls: r => r[5] !== '—' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}, {el: $('s1'), test: (r, v) => !v || r[3] === v}],
+});
+
+runLab('sube-una-carpeta', [
+  {q: '¿Desde qué IP intentan salir de la carpeta de descargas?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.45',
+   hint: 'Busca peticiones con <code>../</code> o <code>%2e%2e</code> en el registro, o mira la columna «Reglas WAF».',
+   explain: '<b>203.0.113.45.</b> Primero pide una factura normal para ver cómo funciona la web, y a partir de las 09:11 empieza a meter <code>../</code> en el parámetro <code>archivo</code>.'},
+  {q: 'Sus dos primeras pruebas con «../» devolvieron 400. ¿Por qué?', type: 'choice',
+   options: ['Porque el archivo no existía', 'Porque el filtro casero del código ve «../» en la URL tal cual llega y la rechaza', 'Porque el WAF las bloqueó'], correct: 1,
+   wrong: '✗ Mira el código (evidencia 3) y en qué modo está el WAF.',
+   explain: '<b>El filtro casero.</b> El WAF está en modo «solo detectar»: marca las peticiones, pero no bloquea nada. El 400 lo devuelve el <code>if "../" in crudo</code> del código.'},
+  {q: '¿Cómo se saltó el filtro?', type: 'choice',
+   options: ['Escribiendo los puntos y la barra codificados en la URL: %2e%2e%2f', 'Usando otra IP', 'Cambiando el nombre del parámetro'], correct: 0,
+   explain: '<b>Codificando.</b> <code>%2e</code> es un punto y <code>%2f</code> es una barra. El filtro busca «../» en la URL sin decodificar, así que no lo ve; pero <code>request.args</code> ya viene decodificado, y a <code>send_file</code> le llega un <code>../</code> de verdad.'},
+  {q: '¿Cuántas carpetas tuvo que subir (cuántos «../») para llegar al archivo?', type: 'text', ph: 'número',
+   accept: a => ['3', 'tres'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Fíjate en qué petición cambió el 404 por un 200 y cuenta los <code>%2e%2e%2f</code>. O cuenta en la evidencia 2 los pisos que hay de <code>descargas/</code> a <code>app/</code>.',
+   explain: '<b>Tres.</b> Desde <code>/app/web/estaticos/descargas/</code>: uno a <code>estaticos/</code>, dos a <code>web/</code>, tres a <code>app/</code>. Con uno o dos buscaba <code>config/</code> donde no está (404).'},
+  {q: '¿Qué archivo se llevó? (el que devolvió 200)', type: 'text', ph: 'archivo',
+   accept: a => ['config/.env', '.env', '/app/config/.env', 'env'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Filtra por «Solo 200» y busca la IP del atacante.',
+   explain: '<b>config/.env</b> (<code>/app/config/.env</code>). Pesa 0,3 KB: un archivo de texto con el usuario y la contraseña de la base de datos y la del correo. 17 minutos después alguien entra en la base de datos con <code>descargas_app</code> desde la misma IP (evidencia 4).'},
+  {q: '¿Qué regla del OWASP Core Rule Set está pensada para pillar el «../» codificado, mirando la petición sin decodificar?', type: 'choice',
+   options: ['930100', '930110', '930130'], correct: 0,
+   explain: '<b>930100</b> «Path Traversal Attack (/../)» mira la petición tal cual llega, sin transformarla, así que ve <code>%2e%2e%2f</code>. <b>930110</b> busca lo mismo después de decodificar. Por eso en las peticiones de varios pisos saltan las dos. 930130 es para archivos restringidos pedidos en la propia ruta.'},
+  {q: 'El WAF marcó todas sus peticiones. ¿Cuál era la señal de que había que actuar ya?', type: 'choice',
+   options: ['Que hubiera muchas peticiones seguidas', 'Una regla 930xxx en una petición que devolvió 200: el archivo salió', 'El tamaño de las facturas'], correct: 1,
+   explain: '<b>930xxx + 200.</b> Un intento con 400 o 404 es ruido; uno con 200 en un archivo que no es de la web (no hay ninguna página llamada <code>config/.env</code>) es una fuga. Esa combinación merece una alerta que alguien mire en minutos.'},
+  {q: 'Un compañero propone: «añadimos también %2e%2e%2f al filtro y listo». ¿Qué arreglo lo cierra de verdad?', type: 'choice',
+   options: ['Sí, con eso basta', 'No construir la ruta con lo que manda el usuario: lista blanca de archivos (o ids); y si no queda otra, normalizar la ruta y comprobar que sigue dentro de descargas/', 'Cambiar el nombre del parámetro archivo por otro menos obvio'], correct: 1,
+   explain: '<b>Lista blanca o normalizar y comprobar.</b> Hay demasiadas formas de escribir «../» (doble codificación, barras invertidas…) para taparlas una a una. Lo que funciona es no fiarse de la ruta: o la web solo sirve archivos de su lista, o calcula la ruta real (<code>realpath</code>) y comprueba que empieza por <code>/app/web/estaticos/descargas/</code>. Y, por si acaso, que el usuario de la web no pueda leer <code>config/</code>.'},
+  {q: 'Aparte de arreglar el código, ¿qué hay que hacer ya mismo?', type: 'choice',
+   options: ['Nada: si se arregla el código ya no pueden entrar', 'Cambiar la contraseña de la base de datos y la del correo, y cortar el acceso de 203.0.113.45', 'Borrar el registro para que no se vea el fallo'], correct: 1,
+   explain: '<b>Cambiar las contraseñas.</b> Arreglar el código no las vuelve secretas: ya las tiene. Y la evidencia 4 dice que ya las ha usado para leer la tabla de clientes.'},
+], 'N4{normaliza_y_comprueba_que_sigue_dentro}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
