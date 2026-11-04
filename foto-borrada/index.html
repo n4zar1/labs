@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>La tarjeta formateada · Labs N4zar1</title>
 <meta name="description" content="Reto: Álex vendió de segunda mano la tarjeta SD de su cámara después de formatearla. Abre los bytes de la tarjeta, busca la firma de las fotos y recupera lo que «había borrado».">
-<meta name="theme-color" content="#040a1c">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,14 +14,14 @@
 <style>
 .evidence h3{margin:0;font:inherit}
 .evidence td{font-family:ui-monospace,Consolas,monospace;white-space:pre}
-.evidence td:nth-child(2){color:#9fd2ff}
+.evidence td:nth-child(2){color:var(--acento)}
 .carver{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
 .carver input{flex:1;min-width:180px}
 .fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px}
-.fotos figure{margin:0;background:#0b1430;border-radius:14px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.fotos figure{margin:0;background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:8px}
 .fotos canvas{width:100%;border-radius:10px;display:block}
-.fotos figcaption{font-size:13px;opacity:.8;margin-top:6px;word-break:break-all}
-.msg{font-size:14px;opacity:.85}
+.fotos figcaption{font-size:13px;color:var(--texto2);margin-top:6px;word-break:break-all}
+.msg{font-size:14px;color:var(--texto2)}
 </style>
 </head>
 <body>

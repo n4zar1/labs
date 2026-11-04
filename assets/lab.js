@@ -151,9 +151,12 @@ function runLab(id, tasks, flag) {
   const box = document.getElementById('tasks');
   const state = store.get('state:' + id) || {};
   track(`lab/${id}/abierto`, `Lab abierto: ${id}`);
-  box.innerHTML = tasks.map((t, i) => `
-    <div class="task" id="t${i}">
-      <div class="q"><span class="n">${String(i + 1).padStart(2, '0')}</span><span>${t.q}</span></div>
+  box.innerHTML = `
+    <div class="tasks-hd"><h2>Preguntas</h2><div class="pasos" aria-hidden="true">${tasks.map(() => '<i></i>').join('')}</div><span class="cuenta" aria-live="polite"></span></div>
+    <ol class="task-list">${tasks.map((t, i) => `
+    <li class="task" id="t${i}">
+      <span class="n" aria-hidden="true"><span>${i + 1}</span></span>
+      <div class="q"><span class="vh">Pregunta ${i + 1}. </span>${t.q}</div>
       <form class="ans" data-i="${i}">
         ${t.type === 'choice'
           ? t.options.map((o, j) => `<label><input type="radio" name="c${i}" value="${j}"> <span>${o}</span></label>`).join('') + '<button class="btn">Comprobar</button>'
@@ -162,12 +165,31 @@ function runLab(id, tasks, flag) {
       <div class="fb" role="status"></div>
       ${t.hint ? `<details class="hint"><summary>Pista</summary>${t.hint}</details>` : ''}
       <div class="explain">${t.explain || ''}</div>
-    </div>`).join('');
+    </li>`).join('')}
+    </ol>`;
 
-  const mark = (i, ok) => { document.getElementById('t' + i).classList.toggle('ok', ok); };
+  const items = [...box.querySelectorAll('.task')], marks = [...box.querySelectorAll('.pasos i')];
+  const mark = (i, ok) => { items[i].classList.toggle('ok', ok); };
+  // Progreso arriba (pegajoso) y la primera pregunta sin resolver resaltada: así se sigue el hilo.
+  const progress = () => {
+    const n = tasks.filter((_, i) => state[i]).length, cur = tasks.findIndex((_, i) => !state[i]);
+    items.forEach((el, i) => el.classList.toggle('ahora', i === cur));
+    marks.forEach((m, i) => { m.className = state[i] ? 'ok' : i === cur ? 'ahora' : ''; });
+    box.querySelector('.cuenta').innerHTML = `<b>${n}</b> de ${tasks.length} resueltas`;
+  };
+  const next = () => {
+    const cur = tasks.findIndex((_, i) => !state[i]);
+    const to = cur < 0 ? document.getElementById('win') : items[cur];
+    to.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+    const field = cur < 0 ? null : to.querySelector('input');
+    if (field) setTimeout(() => field.focus({preventScroll: true}), 400);
+  };
+  const win = document.getElementById('win');
+  prepareWin(win, flag);
   const check = () => {
     const all = tasks.every((_, i) => state[i]);
-    document.getElementById('win').classList.toggle('on', all);
+    progress();
+    win.classList.toggle('on', all);
     if (all) {
       if (!store.get('done:' + id)) track(`lab/${id}/bandera`, `Bandera conseguida: ${id}`);
       store.set('done:' + id, true); document.getElementById('flag').textContent = flag;
@@ -182,6 +204,7 @@ function runLab(id, tasks, flag) {
     f.nextElementSibling.textContent = '✓ Correcto'; f.nextElementSibling.className = 'fb good';
   }
 
+  box.addEventListener('click', e => { if (e.target.closest('.sig')) next(); });
   box.addEventListener('submit', e => {
     e.preventDefault();
     const f = e.target, i = +f.dataset.i, t = tasks[i], fb = f.nextElementSibling;
@@ -197,7 +220,12 @@ function runLab(id, tasks, flag) {
     }
     if (ok && !state[i]) track(`lab/${id}/pregunta-${i + 1}`, `Pregunta ${i + 1} acertada: ${id}`);
     if (!ok) track(`lab/${id}/fallo-${i + 1}`, `Fallo en la pregunta ${i + 1}: ${id}`);
-    if (ok) { state[i] = true; state['v' + i] = raw; store.set('state:' + id, state); fb.textContent = '✓ Correcto'; fb.className = 'fb good'; mark(i, true); }
+    if (ok) {
+      state[i] = true; state['v' + i] = raw; store.set('state:' + id, state); mark(i, true);
+      const done = tasks.every((_, k) => state[k]);
+      fb.className = 'fb good';
+      fb.innerHTML = `✓ Correcto<button type="button" class="sig">${done ? 'Ver tu bandera ↓' : 'Siguiente pregunta ↓'}</button>`;
+    }
     else { fb.textContent = t.wrong || '✗ No es eso. Revisa la evidencia (o abre la pista).'; fb.className = 'fb bad'; mark(i, false); }
     check();
   });
@@ -206,6 +234,65 @@ function runLab(id, tasks, flag) {
     store.set('state:' + id, {}); store.set('done:' + id, false); location.reload();
   });
   check();
+}
+
+// Bandera: cada lab trae «Bandera: <code id=flag>» y un párrafo tipo «Lo que haría X: a; b; c».
+// Aquí se le da forma: caja con la bandera y botón de copiar, y la lección como título y lista.
+function prepareWin(win, flag) {
+  if (!win || win.dataset.ready) return;
+  win.dataset.ready = 1;
+  const code = win.querySelector('#flag'), pFlag = code && code.closest('p');
+  if (pFlag) {
+    const caja = document.createElement('div');
+    caja.className = 'bandera';
+    caja.innerHTML = '<span class="et">Tu bandera</span>';
+    caja.append(code);
+    const copy = document.createElement('button');
+    copy.type = 'button'; copy.className = 'btn ghost'; copy.textContent = 'Copiar';
+    copy.addEventListener('click', () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(flag) : Promise.reject()).then(() => {
+        copy.textContent = 'Copiada'; setTimeout(() => { copy.textContent = 'Copiar'; }, 1800);
+      }).catch(() => { const r = document.createRange(); r.selectNodeContents(code); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); });
+    });
+    caja.append(copy);
+    pFlag.replaceWith(caja);
+    const h = win.querySelector('h2');
+    if (h) {
+      h.textContent = 'Reto resuelto';
+      const sub = document.createElement('p'); sub.className = 'sub-win';
+      sub.textContent = 'Has acertado todas las preguntas. Esta es la bandera del reto:';
+      h.after(sub);
+    }
+  }
+  // Divide un HTML por un separador sin cortar dentro de etiquetas (<code>, <b>…).
+  const split = (html, re) => {
+    const out = []; let depth = 0, cur = '', i = 0;
+    while (i < html.length) {
+      if (html[i] === '<') {
+        const j = html.indexOf('>', i), tag = html.slice(i, j + 1);
+        depth += tag[1] === '/' ? -1 : /\/>$/.test(tag) ? 0 : 1; cur += tag; i = j + 1; continue;
+      }
+      const m = depth === 0 ? html.slice(i).match(re) : null;
+      if (m) { out.push(cur); cur = ''; i += m[0].length; continue; }
+      cur += html[i++];
+    }
+    out.push(cur);
+    return out.map(x => x.trim()).filter(Boolean);
+  };
+  const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+  win.querySelectorAll(':scope > p:not(.sub-win)').forEach(p => {
+    const html = p.innerHTML.trim();
+    const m = html.match(/^([^<:]{3,48}):\s+/);
+    const body = m ? html.slice(m[0].length) : html;
+    let parts = split(body, /^;\s+/);
+    if (parts.length < 3) parts = split(body, /^\.\s+(?=[A-ZÁÉÍÓÚÑ¿])/).map((x, k, a) => (k < a.length - 1 ? x + '.' : x));
+    if (!m && parts.length < 3) return;
+    const sec = document.createElement('div');
+    sec.className = 'leccion';
+    sec.innerHTML = (m ? `<h3>${cap(m[1])}</h3>` : '') +
+      (parts.length > 1 ? '<ul>' + parts.map(x => `<li>${cap(x.replace(/^y\s+/, ''))}</li>`).join('') + '</ul>' : `<p>${body}</p>`);
+    p.replaceWith(sec);
+  });
 }
 
 // simple table filter: rows = array of arrays; cls(row) -> row class

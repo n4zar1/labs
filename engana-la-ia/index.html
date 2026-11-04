@@ -5,52 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Engaña a la IA · Labs N4zar1</title>
 <meta name="description" content="Reto de inyección de prompt: consigue que la IA de compras de una empresa ficticia te adjudique un contrato con texto invisible, y después detecta las órdenes ocultas en cinco correos.">
-<meta name="theme-color" content="#040a1c">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" href="../assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="../assets/lab.css">
 <style>
-.part{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:36px 0 12px;font:800 24px/1.2 var(--display)}
+.part{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:40px 0 14px;font:700 22px/1.25 var(--sans);letter-spacing:-.02em}
 .part span{white-space:nowrap;font:700 12px/1 var(--mono);letter-spacing:.12em;padding:6px 8px;border-radius:5px}
 .part .red{background:var(--alert);color:#fff}
-.part .blue{background:var(--violet);color:#031024}
+.part .blue{background:var(--cian);color:var(--sobre-cian)}
 .bot{padding:18px;display:grid;gap:16px}
 .bot label{display:block;font:700 13px/1 var(--mono);letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
-.bot textarea{width:100%;min-height:110px;resize:vertical;font:500 15px/1.5 var(--body);background:#030817;color:var(--fg);border:1px solid var(--line2);border-radius:8px;padding:11px 12px}
+.bot textarea{width:100%;min-height:110px;resize:vertical;font:500 15px/1.5 var(--body);background:var(--fondo);color:var(--fg);border:1px solid var(--line2);border-radius:8px;padding:11px 12px}
 .bot textarea#hidden{border-color:rgba(255,77,94,.5)}
 .views{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media (max-width:700px){.views{grid-template-columns:1fr}}
 .view h4{margin:0 0 8px;font:700 13px/1.3 var(--mono);color:var(--muted)}
-.doc{background:#fbfbf8;color:#1b2233;border-radius:10px;padding:16px 18px;font:500 14.5px/1.5 var(--body);min-height:120px;overflow-wrap:anywhere}
+.doc{background:#fbfbf8;border:1px solid var(--line);color:#1b2233;border-radius:10px;padding:16px 18px;font:500 14.5px/1.5 var(--body);min-height:120px;overflow-wrap:anywhere}
 .doc .hid{color:#fbfbf8;font-size:1px;line-height:1}
-.raw{background:#030817;border:1px solid var(--line2);border-radius:10px;padding:14px 16px;font:500 13.5px/1.55 var(--mono);color:#dbe6fa;min-height:120px;white-space:pre-wrap;overflow-wrap:anywhere}
+.raw{background:var(--superficie2);border:1px solid var(--line2);border-radius:10px;padding:14px 16px;font:500 13.5px/1.55 var(--mono);color:var(--texto);min-height:120px;white-space:pre-wrap;overflow-wrap:anywhere}
 .raw .sys{color:var(--muted)}
-.raw mark{background:rgba(255,77,94,.25);color:#ffb3bc}
+.raw mark{background:var(--mal-suave);color:var(--mal)}
 .rank{display:grid;gap:8px}
-.rk{display:grid;grid-template-columns:minmax(120px,190px) 1fr 44px;gap:12px;align-items:center;padding:9px 12px;border-radius:9px;background:#08112b;border:1px solid var(--line);font:600 14px/1.2 var(--body)}
+.rk{display:grid;grid-template-columns:minmax(120px,190px) 1fr 44px;gap:12px;align-items:center;padding:9px 12px;border-radius:9px;background:var(--superficie);border:1px solid var(--line);font:600 14px/1.2 var(--body)}
 .rk .b{height:10px;border-radius:5px;background:var(--panel2);overflow:hidden}
-.rk .b i{display:block;height:100%;background:#4a5f94;border-radius:5px;transition:width .5s}
-.rk b{font:800 18px/1 var(--display);text-align:right}
+.rk .b i{display:block;height:100%;background:var(--linea2);border-radius:5px;transition:width .5s}
+.rk b{font:700 18px/1 var(--sans);text-align:right}
 .rk.me{border-color:var(--line2)}
 .rk.me .b i{background:var(--blue)}
-.rk.top{border-color:var(--amber);background:#1a160a}
+.rk.top{border-color:var(--amber);background:var(--superficie2)}
 .rk.top .b i{background:var(--amber)}
-.verdict{padding:14px 16px;border-radius:10px;font:500 15px/1.5 var(--body);border:1px solid var(--line2);background:#08112b}
-.verdict.win{display:block;margin:0;border-color:rgba(61,220,132,.6);background:rgba(61,220,132,.08)}
-.verdict.bad{border-color:rgba(255,77,94,.6);background:rgba(255,77,94,.08)}
-.verdict code{font:700 15px/1 var(--mono);color:var(--ok);background:#030817;padding:3px 8px;border-radius:6px}
+.verdict{padding:14px 16px;border-radius:10px;font:500 15px/1.5 var(--body);border:1px solid var(--line2);background:var(--superficie)}
+.verdict.win{display:block;margin:0;padding:14px 16px;border-radius:10px;border-color:var(--ok);background:var(--ok-suave)}
+.verdict.bad{border-color:var(--mal);background:var(--mal-suave)}
+.verdict code{font:700 15px/1 var(--mono);color:var(--ok);background:var(--fondo);padding:3px 8px;border-radius:6px}
 .mails{display:grid;gap:14px;margin-bottom:28px}
 .mail{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .mail .mh{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;padding:12px 16px;background:var(--panel2);border-bottom:1px solid var(--line)}
-.mail .mh .num{font:700 12px/1 var(--mono);color:#031024;background:var(--violet);padding:5px 7px;border-radius:5px}
+.mail .mh .num{font:600 12px/1 var(--mono);color:var(--sobre-cian);background:var(--cian);padding:5px 7px;border-radius:5px}
 .mail .mh b{font:700 15px/1.3 var(--body)}
 .mail .mh span{color:var(--muted);font-size:14px}
-.mail .mb{background:#fff;color:#1b2233;padding:16px 18px;font:400 15px/1.55 var(--body)}
+.mail .mb{background:#fff;color:#1b2233;border-bottom:1px solid var(--line);padding:16px 18px;font:400 15px/1.55 var(--body)}
 .mail .mb p{margin:0 0 10px}.mail .mb p:last-child{margin:0}
 .mail .mf{display:flex;justify-content:flex-end;padding:10px 14px}
-.mail pre{margin:0;padding:14px 16px;background:#030817;border-top:1px solid var(--line);font:500 13px/1.55 var(--mono);color:#dbe6fa;white-space:pre-wrap;overflow-wrap:anywhere}
-.mail pre mark{background:rgba(255,194,75,.2);color:var(--amber)}
+.mail pre{margin:0;padding:14px 16px;background:var(--superficie2);border-top:1px solid var(--line);font:500 13px/1.55 var(--mono);color:var(--texto);white-space:pre-wrap;overflow-wrap:anywhere}
+.mail pre mark{background:var(--superficie);color:var(--aviso);font-weight:600}
 </style>
 </head>
 <body>
