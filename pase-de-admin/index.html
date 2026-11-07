@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El pase de admin · Labs N4zar1</title>
+<meta name="description" content="Reto de JWT manipulado: una tienda online donde una clienta pasó a ser administradora cambiando una palabra de su token. Descodifica el token, encuentra el truco, la IP, lo que borró y el arreglo que lo cierra.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}
+.dec{padding:16px 18px;display:grid;gap:10px}.dec textarea{width:100%;box-sizing:border-box;min-height:84px;font:500 14px/1.5 var(--mono);padding:10px 12px;border-radius:8px;border:1px solid var(--line, #8884);background:transparent;color:inherit}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El pase de admin</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Cambié una palabra en mi sesión… y era administrador (JWT manipulado)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Tienda Example, una tienda online ficticia. Jueves 12/11 por la mañana alguien entró en el panel de administración, miró los datos de los clientes, cambió permisos y borró una cuenta. Nadie robó ninguna contraseña de administrador. Te pasan el token de sesión que la web le dio a la clienta Ana, el registro de la API, el código que lee el token y la línea de tiempo del SIEM.</p>
+    <p><b>Tu misión:</b> descodifica el token, descubre qué cambiaron y cómo lo aceptó el servidor, desde dónde, qué hicieron y qué arreglo lo cierra. Chuleta: un JWT son tres trozos en Base64URL separados por puntos (cabecera, datos y firma). Codificar no es cifrar: cualquiera lo lee. Lo único que impide cambiarlo es que el servidor compruebe la firma.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Navegador de Ana › cookie <code>sesion</code> que le dio la tienda al entrar (09:12)</h3></div>
+    <pre class="code" id="tokAna"></pre>
+  </div>
+
+  <div class="evidence" id="ev0">
+    <div class="hd"><h3>Herramienta · Descodificador de JWT (funciona solo en tu navegador)</h3></div>
+    <div class="dec">
+      <textarea id="decIn" aria-label="Token a descodificar" placeholder="Pega aquí un token (eyJ…)"></textarea>
+      <pre class="code" id="decOut">Pega un token para ver su cabecera y sus datos.</pre>
+    </div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · API de la tienda › api.log del 12/11 (la pasarela solo registra, no bloquea)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, ruta, alg…)" aria-label="Buscar en el registro de la API"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El servidor por dentro: cómo lee el token (Node, librería jsonwebtoken)</h3></div>
+    <pre class="code">// middleware/sesion.js
+const jwt = require('jsonwebtoken');
+
+function sesion(req, res, next) {
+  const token = req.cookies.sesion;
+  <b>const datos = jwt.decode(token);   // TODO: verificar la firma</b>
+  if (!datos) return res.status(401).end();
+  req.usuario = datos.usuario;
+  req.rol = datos.rol;                 // "user" o "admin"
+  next();
+}
+
+// rutas/admin.js
+router.use((req, res, next) => req.rol === 'admin' ? next() : res.status(403).end());</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · SIEM › línea de tiempo de la cuenta «ana» (12/11)</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (evento, IP…)" aria-label="Buscar en la línea de tiempo"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría la tienda: cambiar <code>jwt.decode</code> por <code>jwt.verify(token, clave, { algorithms: ['HS256'] })</code> para que un token sin firma o con la firma mal se rechace; usar una clave larga y aleatoria y tokens con caducidad (<code>exp</code>) de minutos; invalidar todas las sesiones abiertas; restaurar la cuenta de jorge y revisar los permisos que se cambiaron; bloquear <code>203.0.113.66</code>; y poner una alerta para tokens con <code>alg=none</code>, firmas inválidas y cambios de rol sin inicio de sesión.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, dominios, IPs, claves y tokens ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const TOK_ANA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c3VhcmlvIjoiYW5hIiwicm9sIjoidXNlciIsImlhdCI6MTc5NDQ3MDQwMH0.2aueBB1a3cxLuq4XRksl09aaCVgsYZHP94KQwiDfGC4';
+const TOK_FIRMA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c3VhcmlvIjoiYW5hIiwicm9sIjoiYWRtaW4iLCJpYXQiOjE3OTQ0NzA0MDB9.2aueBB1a3cxLuq4XRksl09aaCVgsYZHP94KQwiDfGC4';
+const TOK_NONE = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c3VhcmlvIjoiYW5hIiwicm9sIjoiYWRtaW4iLCJpYXQiOjE3OTQ0NzA0MDB9.';
+$('tokAna').textContent = TOK_ANA;
+
+// Descodificador local: Base64URL → texto.
+const b64u = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return decodeURIComponent(escape(atob(s))); };
+$('decIn').addEventListener('input', () => {
+  const t = $('decIn').value.trim();
+  if (!t) { $('decOut').textContent = 'Pega un token para ver su cabecera y sus datos.'; return; }
+  const p = t.split('.');
+  try {
+    $('decOut').textContent = 'Cabecera: ' + b64u(p[0]) + '\nDatos:    ' + (p[1] ? b64u(p[1]) : '(vacío)') + '\nFirma:    ' + (p[2] ? p[2] : '(vacía: no hay firma)');
+  } catch (e) { $('decOut').textContent = 'Eso no parece un JWT (tres trozos en Base64URL separados por puntos).'; }
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'IP', 'Petición', 'Usuario · rol (del token)', 'alg', 'Firma', 'Estado'],
+  rows: [
+    ['09:12:40', '192.0.2.40', 'POST /api/entrar', 'ana · user', '-', '-', '200'],
+    ['09:13:05', '192.0.2.40', 'GET /api/pedidos', 'ana · user', 'HS256', 'válida', '200'],
+    ['09:20:11', '198.51.100.7', 'GET /api/pedidos', 'luis · user', 'HS256', 'válida', '200'],
+    ['09:58:30', '203.0.113.66', 'GET /api/pedidos', 'ana · user', 'HS256', 'válida', '200'],
+    ['10:02:14', '203.0.113.66', 'GET /api/admin/usuarios', 'ana · admin', 'HS256', 'NO COINCIDE', '200'],
+    ['10:05:02', '203.0.113.66', 'GET /api/admin/usuarios', 'ana · admin', 'none', '(sin firma)', '200'],
+    ['10:05:40', '203.0.113.66', 'PATCH /api/admin/usuarios/luis  rol=admin', 'ana · admin', 'none', '(sin firma)', '200'],
+    ['10:06:15', '203.0.113.66', 'DELETE /api/admin/usuarios/jorge', 'ana · admin', 'none', '(sin firma)', '200'],
+    ['10:31:52', '192.0.2.40', 'GET /api/pedidos', 'ana · user', 'HS256', 'válida', '200'],
+  ],
+  cls: r => r[5] !== 'válida' && r[5] !== '-' ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'Evento', 'Detalle', 'IP'],
+  rows: [
+    ['09:12:40', 'Inicio de sesión correcto', 'ana · contraseña + código', '192.0.2.40'],
+    ['09:58:30', 'Uso de sesión', 'la cookie de ana aparece en otra IP', '203.0.113.66'],
+    ['10:02:14', 'Rol en el token', 'user → admin (sin inicio de sesión)', '203.0.113.66'],
+    ['10:05:40', 'Cambio de permisos', 'luis: user → admin', '203.0.113.66'],
+    ['10:06:15', 'Cuenta borrada', 'jorge', '203.0.113.66'],
+  ],
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('pase-de-admin', [
+  {q: 'Descodifica el token de Ana (evidencia 1). ¿Qué rol tiene?', type: 'text', ph: 'rol',
+   accept: a => norm(a).replace(/\s/g, '') === 'user',
+   hint: 'Pega el token en el descodificador y mira «Datos».',
+   explain: '<b>user.</b> Los datos dicen <code>{"usuario":"ana","rol":"user","iat":1794470400}</code>. No hacía falta ninguna clave para leerlo: es Base64URL, no cifrado.'},
+  {q: 'Según sus datos, ¿cuándo caduca el token de Ana?', type: 'choice',
+   options: ['A los 15 minutos', 'Al cerrar el navegador', 'Nunca: no lleva el campo exp'], correct: 2,
+   explain: '<b>Nunca.</b> Solo lleva <code>iat</code> (cuándo se emitió). Sin <code>exp</code>, un token copiado o manipulado vale para siempre.'},
+  {q: '¿Desde qué IP se usó la sesión de Ana como administradora?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.66',
+   hint: 'Busca «admin» en la evidencia 2.',
+   explain: '<b>203.0.113.66.</b> Ana entró desde 192.0.2.40; a las 09:58 su sesión aparece en otra IP y a las 10:02 ya dice ser admin.'},
+  {q: 'A las 10:02 el token dice admin pero la firma «NO COINCIDE». ¿Qué cambió el atacante?', type: 'choice',
+   options: ['La firma, para que cuadre', 'Solo los datos: puso "rol":"admin" y dejó la firma vieja, que ya no coincide', 'La contraseña de Ana'], correct: 1,
+   explain: '<b>Solo los datos.</b> La firma se calcula con la cabecera, los datos y la clave del servidor. Si cambias una letra de los datos, la firma vieja deja de coincidir. Aun así la API respondió 200.'},
+  {q: 'A las 10:05 el atacante prueba otra variante. ¿Qué valor de «alg» lleva su token?', type: 'text', ph: 'alg',
+   accept: a => norm(a).replace(/\s/g, '') === 'none',
+   hint: 'Columna alg de la evidencia 2. Si quieres verlo tú, este es el token: ' + TOK_NONE,
+   explain: '<b>none.</b> «Sin algoritmo»: el token termina en un punto y no lleva firma. El RFC 8725 avisa de que algunas librerías se lo creían.'},
+  {q: '¿Por qué el servidor aceptó los dos tokens manipulados?', type: 'choice',
+   options: ['Porque el atacante adivinó la clave', 'Porque usa jwt.decode, que solo lee el token y no comprueba la firma', 'Porque Base64 se puede romper'], correct: 1,
+   wrong: '✗ Mira la línea marcada en la evidencia 3.',
+   explain: '<b>jwt.decode no verifica.</b> Lee los datos y se los cree. Daba igual que la firma no coincidiera o que no hubiera firma: el servidor ni la miraba.'},
+  {q: '¿Qué cuenta borró el atacante?', type: 'text', ph: 'usuario',
+   accept: a => norm(a).replace(/\s/g, '') === 'jorge',
+   hint: 'Busca DELETE en la evidencia 2.',
+   explain: '<b>jorge</b>, a las 10:06. Antes había hecho admin a luis (10:05), seguramente para quedarse con otra puerta.'},
+  {q: 'Para un analista, ¿qué delata el ataque en el SIEM aunque la API devuelva 200?', type: 'choice',
+   options: ['Que la sesión pase a admin sin ningún inicio de sesión y con tokens sin firma o con firma inválida', 'Que haya muchas peticiones GET', 'Que el usuario se llame ana'], correct: 0,
+   explain: '<b>Rol cambiado sin inicio de sesión.</b> La OWASP pide registrar los fallos de validación de JWT y los cambios de privilegios. Con esas dos cosas, la alerta salta a las 10:02.'},
+  {q: '¿Qué función de jsonwebtoken debe usar el servidor en lugar de decode?', type: 'text', ph: 'función',
+   accept: a => ['verify', 'jwt.verify', 'jwt.verify()', 'verify()'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'La que «verifica».',
+   explain: '<b>jwt.verify(token, clave, { algorithms: ["HS256"] })</b>. Comprueba la firma con la clave y solo acepta el algoritmo de la lista: un token con <code>alg=none</code> o con la firma mal se rechaza.'},
+], 'N4{la_firma_se_comprueba_siempre}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
