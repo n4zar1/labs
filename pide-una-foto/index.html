@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pide una foto · Labs N4zar1</title>
+<meta name="description" content="Reto de SSRF: una tienda de fotos ficticia que descarga la foto del enlace que le das. Encuentra quién le pidió una dirección interna, cómo se saltó el filtro, qué credenciales se llevó, qué hizo con ellas y el arreglo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>Pide una foto</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Le pedí a la web una foto… y me dio las claves de su servidor (SSRF)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> FotoRápida, una tienda ficticia que imprime fotos y funciona en un servidor en la nube (web01). Para ahorrarte subir la foto tiene la opción «Imprimir desde un enlace»: pegas la dirección de la foto y la web va a buscarla ella misma. El lunes por la mañana Marta, la técnica, ve una alerta en la nube. Te pasa el registro de la web, el del proxy de salida, el registro de la nube (quién usó qué credenciales) y un trozo del código.</p>
+    <p><b>Tu misión:</b> encuentra el parámetro que abre la puerta, quién lo usó, adónde hizo llamar al servidor, cómo se saltó el filtro de Marta, qué credenciales se llevó, qué hizo con ellas y qué arreglo lo cierra. Chuleta: en SSRF (Server-Side Request Forgery) no eres tú quien hace la petición: la hace el servidor por ti. Y el servidor ve cosas que tú no ves, como la red interna o el servicio de metadatos de la nube (<code>169.254.169.254</code>), que entrega las credenciales temporales del propio servidor.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro de la web (access.log de web01) · lunes 09:10–09:20</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, ruta…)" aria-label="Buscar en el registro de la web"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Proxy de salida (lo que pidió web01, hacia fuera y hacia dentro)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (destino, resultado…)" aria-label="Buscar en el proxy de salida"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Registro de la nube (llamadas a la API con las credenciales de web01)</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (IP, acción…)" aria-label="Buscar en el registro de la nube"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · El código de «Imprimir desde un enlace» y la configuración de web01</h3></div>
+    <pre class="code">// imprimir.js (extracto)
+const PROHIBIDAS = ['localhost', '127.0.0.1', '<b>169.254.169.254</b>'];   // filtro de Marta
+app.get('/imprimir', async (req, res) =&gt; {
+  const url = req.query.<b>url</b>;
+  if (PROHIBIDAS.some(p =&gt; url.includes(p))) return res.status(400).send('Enlace no permitido');
+  const r = await fetch(url);                                       // web01 va a buscarla
+  res.type(r.headers.get('content-type')).send(await r.buffer());   // y devuelve lo que reciba
+});
+
+Configuración de la instancia web01:
+  Rol asignado:      rol-web01   (permisos: s3:* sobre todos los buckets)
+  Metadatos (IMDS):  HttpTokens = <b>optional</b>   (acepta peticiones sin token)
+  GuardDuty:         activado</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Marta: revocar ya las sesiones del rol y revisar todo lo que ese rol podía leer; avisar de la posible fuga de los pedidos; cambiar el filtro por una lista de destinos permitidos (solo https, solo los dominios de fotos aceptados, sin seguir redirecciones y comprobando la IP final, no el texto); no devolver nunca al usuario algo que no sea una imagen; poner los metadatos en IMDSv2 (<code>HttpTokens = required</code>) y vigilar la métrica <code>MetadataNoToken</code>; dejar el rol de web01 solo con lo que necesita (escribir en su bucket de fotos); y en el proxy de salida, bloquear y alertar cualquier petición de la web a direcciones internas.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, dominios, IPs, claves y buckets ficticios (las claves son las de ejemplo de la documentación de AWS); nada de esta página funciona contra nadie y nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP cliente', 'Petición', 'Respuesta'],
+  rows: [
+    ['09:10:02', '83.40.12.7', 'GET /imprimir?url=https://fotos-de-ana.example/playa.jpg', '200 · image/jpeg · 812 KB'],
+    ['09:11:15', '198.51.100.23', 'GET /imprimir?url=https://fotos-de-ana.example/playa.jpg', '200 · image/jpeg · 812 KB'],
+    ['09:11:40', '198.51.100.23', 'GET /imprimir?url=http://127.0.0.1:8080/', '400 · Enlace no permitido'],
+    ['09:12:05', '198.51.100.23', 'GET /imprimir?url=http://10.0.0.12:6379/', '502 · 0 KB'],
+    ['09:12:31', '198.51.100.23', 'GET /imprimir?url=http://169.254.169.254/latest/meta-data/', '400 · Enlace no permitido'],
+    ['09:13:02', '198.51.100.23', 'GET /imprimir?url=http://2852039166/latest/meta-data/', '200 · text/plain · 1 KB'],
+    ['09:13:20', '198.51.100.23', 'GET /imprimir?url=http://2852039166/latest/meta-data/iam/security-credentials/', '200 · text/plain · 9 B'],
+    ['09:13:41', '198.51.100.23', 'GET /imprimir?url=http://2852039166/latest/meta-data/iam/security-credentials/rol-web01', '200 · text/plain · 1,3 KB'],
+    ['09:15:10', '83.40.12.7', 'GET /imprimir?url=https://fotos-de-ana.example/gato.jpg', '200 · image/jpeg · 640 KB'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Origen', 'Destino', 'Resultado'],
+  rows: [
+    ['09:10:02', 'web01', 'fotos-de-ana.example:443', 'permitido · 812 KB'],
+    ['09:11:15', 'web01', 'fotos-de-ana.example:443', 'permitido · 812 KB'],
+    ['09:12:05', 'web01', '10.0.0.12:6379 (red interna)', 'permitido · conexión cerrada'],
+    ['09:13:02', 'web01', '169.254.169.254:80 (metadatos)', 'permitido · 200'],
+    ['09:13:20', 'web01', '169.254.169.254:80 (metadatos)', 'permitido · 200'],
+    ['09:13:41', 'web01', '169.254.169.254:80 (metadatos)', 'permitido · 200'],
+    ['09:15:10', 'web01', 'fotos-de-ana.example:443', 'permitido · 640 KB'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Credencial', 'IP de origen', 'Acción', 'Detalle'],
+  rows: [
+    ['09:00:00', 'rol-web01 · ASIA…EXAMPLE', '10.0.0.5 (web01)', 'PutObject', 'bucket fotos-impresion · normal'],
+    ['09:14:30', 'rol-web01 · ASIA…EXAMPLE', '198.51.100.23', 'GetCallerIdentity', '¿quién soy?'],
+    ['09:14:52', 'rol-web01 · ASIA…EXAMPLE', '198.51.100.23', 'ListBuckets', '3 buckets'],
+    ['09:15:30', 'rol-web01 · ASIA…EXAMPLE', '198.51.100.23', 'GetObject ×4.812', 'bucket pedidos-clientes'],
+    ['09:16:05', 'GuardDuty', '—', 'Hallazgo · ALTA', 'UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+const sin = a => norm(a).replace(/\s/g, '');
+
+runLab('pide-una-foto', [
+  {q: '¿Qué parámetro de la web le dice al servidor qué tiene que ir a buscar?', type: 'text', ph: 'nombre del parámetro',
+   accept: a => sin(a).replace(/[?=]/g, '') === 'url',
+   hint: 'Mira las peticiones de la evidencia 1 o el código de la evidencia 4.',
+   explain: '<b>url</b> (<code>/imprimir?url=…</code>). Lo que pongas ahí lo pide web01, no tu navegador. Por eso es SSRF: el servidor hace la petición por ti, con su red y sus permisos.'},
+  {q: '¿Desde qué IP se hizo el ataque?', type: 'text', ph: 'IP',
+   accept: a => sin(a) === '198.51.100.23',
+   hint: 'Busca quién empieza a pedir cosas que no son fotos.',
+   explain: '<b>198.51.100.23</b>. Primero imprime una foto normal (para ver cómo funciona) y luego prueba direcciones que no son fotos: 127.0.0.1, la red interna 10.0.0.12 y los metadatos.'},
+  {q: 'Antes de ir a por las claves probó una dirección de la red interna. ¿Cuál (IP:puerto)?', type: 'text', ph: 'IP:puerto',
+   accept: a => sin(a).replace(/^https?:\/\//, '').replace(/\/$/, '') === '10.0.0.12:6379',
+   hint: 'Evidencia 2: una línea marcada como «red interna».',
+   explain: '<b>10.0.0.12:6379</b>, un puerto típico de Redis. Desde internet no se ve; desde web01, sí. Es el primer aviso que yo buscaría en el proxy de salida: una web de fotos no tiene nada que pedir a la red interna.'},
+  {q: 'El filtro de Marta prohibía «169.254.169.254». ¿Cómo se lo saltó?', type: 'choice',
+   options: ['Usó https en vez de http', 'Escribió la misma IP como un solo número (2852039166): el texto no coincide con el filtro, pero el destino es el mismo', 'Pidió la foto dos veces seguidas', 'El filtro estaba desactivado'], correct: 1,
+   explain: '<b>La IP en decimal.</b> 169·256³ + 254·256² + 169·256 + 254 = 2.852.039.166, así que <code>http://2852039166/</code> llega al mismo sitio. Por eso OWASP avisa de que las listas de prohibidos y las expresiones regulares no frenan una SSRF: hay muchas formas de escribir la misma dirección (decimal, hexadecimal, redirecciones, un dominio que apunta dentro…). Lo que funciona es una lista de destinos permitidos.'},
+  {q: '¿De qué rol se llevó las credenciales?', type: 'text', ph: 'nombre del rol',
+   accept: a => sin(a) === 'rol-web01',
+   hint: 'Evidencia 1: la última petición a los metadatos termina con su nombre.',
+   explain: '<b>rol-web01</b>. La ruta <code>/latest/meta-data/iam/security-credentials/</code> devuelve el nombre del rol y, al pedirlo, sus claves temporales (AccessKeyId, SecretAccessKey y Token). La web, obediente, se las enseñó como si fueran «la foto».'},
+  {q: '¿Por qué el servicio de metadatos se las dio sin pedir nada más?', type: 'choice',
+   options: ['Porque estaba en IMDSv1 (HttpTokens = optional): bastaba un GET sin token', 'Porque el atacante conocía la contraseña de web01', 'Porque GuardDuty estaba desactivado', 'Porque usaba https'], correct: 0,
+   explain: '<b>IMDSv1.</b> Con <code>HttpTokens = required</code> (IMDSv2) primero hay que pedir un token con un <code>PUT</code> y enviarlo en una cabecera; una SSRF como esta solo consigue hacer un GET con la URL que le das, así que se queda fuera. AWS lo lanzó en noviembre de 2019, meses después del caso de Capital One, precisamente contra esto.'},
+  {q: 'Con esas credenciales, ¿de qué bucket descargó datos?', type: 'text', ph: 'nombre del bucket',
+   accept: a => sin(a) === 'pedidos-clientes',
+   hint: 'Evidencia 3: las acciones hechas desde la IP del atacante.',
+   explain: '<b>pedidos-clientes</b>: 4.812 descargas (GetObject). El rol tenía <code>s3:*</code> sobre todos los buckets cuando solo necesitaba escribir fotos en el suyo. Es el patrón de Capital One en 2019: credenciales sacadas de los metadatos y un rol que podía leer demasiado.'},
+  {q: '¿Qué delata el robo en el registro de la nube y hace saltar a GuardDuty?', type: 'choice',
+   options: ['Que web01 subió una foto a las 09:00', 'Que las credenciales de una instancia se usan desde una IP de fuera de la nube (198.51.100.23)', 'Que alguien imprimió una foto de un gato', 'Que hubo un error 502'], correct: 1,
+   explain: '<b>Credenciales de la instancia usadas desde fuera.</b> Esas claves nacen para que las use web01 (10.0.0.5). Si aparecen en llamadas desde 198.51.100.23, alguien se las ha llevado: es el hallazgo <code>InstanceCredentialExfiltration.OutsideAWS</code> de GuardDuty, de gravedad alta.'},
+  {q: '¿Qué arreglo lo cierra de verdad?', type: 'choice',
+   options: ['Añadir «2852039166» a la lista de prohibidas', 'Bloquear la IP 198.51.100.23', 'Lista de destinos permitidos (solo https a los dominios de fotos aceptados, comprobando la IP final), IMDSv2 obligatorio y un rol con lo justo; y revocar las credenciales robadas', 'Quitar la opción y volver a abrirla mañana'], correct: 2,
+   wrong: '✗ Eso no lo cierra: hay muchas otras formas de escribir una dirección interna y muchas otras IPs desde las que atacar.',
+   explain: '<b>Permitidos + IMDSv2 + mínimo privilegio.</b> Es lo que recomiendan OWASP (A10:2021: denegar por defecto y una lista positiva de destino, esquema y puerto) y AWS (IMDSv2 con <code>HttpTokens = required</code>). Y como las claves ya salieron, hay que revocar las sesiones del rol y revisar qué se leyó.'},
+], 'N4{la_foto_era_una_llave}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
