@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El XML trampa · Labs N4zar1</title>
+<meta name="description" content="Reto de XXE (entidad externa de XML): una tienda online que importa pedidos y catálogos en XML y Word, y alguien se llevó su configuración. Encuentra el archivo trampa, qué leyó el servidor, por qué el WAF no lo paró y el arreglo que lo cierra.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El XML trampa</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Subí un archivo de texto… y me devolvió las contraseñas del servidor (XXE)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Muebles Sol, una tienda online ficticia (tienda.example). Domingo 15/11. Su proveedor de pagos avisa de cobros raros hechos con la clave de la tienda, y alguien ha entrado en el panel de administración. La tienda deja a sus mayoristas subir pedidos en XML y catálogos en Word. Te pasan el contenido de los archivos subidos ese día, el registro de su WAF, lo que vio el EDR del servidor web01 y el trozo de código que lee los XML.</p>
+    <p><b>Tu misión:</b> encuentra el archivo trampa (un XXE), qué archivo del servidor leyó, por qué el WAF no lo paró, qué más intentó y qué arreglo lo cierra. Chuleta: en XML, una <i>entidad</i> es un hueco (<code>&amp;nombre;</code>) que el lector rellena; una entidad <i>externa</i> (<code>SYSTEM "…"</code>) se rellena con un archivo o una dirección. Un .docx es un ZIP lleno de XML. Ojo: no todo lo que lleva <code>&lt;!DOCTYPE</code> es un ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Archivos subidos el 15/11 (los .docx, descomprimidos por ti)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (archivo, usuario, texto…)" aria-label="Buscar en los archivos subidos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · WAF (ModSecurity + OWASP CRS + plugin XXE) · registro del 15/11</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, ruta, regla…)" aria-label="Buscar en el registro del WAF"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · EDR de web01 · actividad del proceso php-fpm</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (archivo, IP…)" aria-label="Buscar en la actividad del EDR"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · La web por dentro: el código que lee los XML y la respuesta que recibió el mayorista</h3></div>
+    <pre class="code">// importar.php (PHP 8, libxml 2.10)
+$doc = new DOMDocument();
+$doc-&gt;loadXML($xml, <b>LIBXML_NOENT | LIBXML_DTDLOAD</b>);
+$cliente = $doc-&gt;getElementsByTagName('cliente')-&gt;item(0)-&gt;textContent;
+echo "Importado. Cliente: " . $cliente;
+
+// Respuesta a la subida de las 10:42 (catalogo-otono.docx)
+HTTP/1.1 200 OK
+Importado. Cliente: APP_ENV=produccion
+DB_USER=tienda
+DB_PASS=Xq7!mR2pL9vK
+PAGOS_KEY=pk_9f3a1c77e0b4
+ADMIN_PASS=Sol2026!rojo</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Muebles Sol: quitar <code>LIBXML_NOENT</code> y <code>LIBXML_DTDLOAD</code> y rechazar cualquier XML con <code>&lt;!DOCTYPE</code> (OWASP: «desactiva las DTD siempre que puedas»), también en los .docx y .svg; cambiar ya todas las contraseñas y claves del <code>.env</code> (la base de datos, el panel y la de pagos), cerrar las sesiones del panel, bloquear <code>203.0.113.66</code>, impedir que web01 llame a la red interna y a internet si no lo necesita, y buscar en el WAF y el EDR cualquier otra lectura de archivos o salida rara desde el día 15.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, dominios, IPs y claves ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'Usuario', 'Archivo', 'Contenido (principio)'],
+  rows: [
+    ['09:12', 'mayorista_norte', 'pedido-0391.xml', '<?xml version="1.0"?> <pedido><cliente>Hogar Norte SL</cliente><item>Silla roja x12</item>…'],
+    ['09:47', 'deco_lucia', 'pedido-0392.xml', '<?xml version="1.0"?> <!DOCTYPE pedido SYSTEM "pedido.dtd"> <pedido><cliente>Deco Lucía</cliente>…'],
+    ['10:20', 'proveedor_77', 'pedido-0393.xml', '<?xml version="1.0"?> <!DOCTYPE pedido [ <!ENTITY x SYSTEM "file:///etc/passwd"> ]> <pedido><cliente>&x;</cliente>…'],
+    ['10:42', 'proveedor_77', 'catalogo-otono.docx › word/document.xml', '<?xml version="1.0"?> <!DOCTYPE w:document [ <!ENTITY x SYSTEM "file:///srv/tienda/.env"> ]> <w:document>… <cliente>&x;</cliente>…'],
+    ['10:55', 'proveedor_77', 'catalogo-invierno.docx › word/document.xml', '<?xml version="1.0"?> <!DOCTYPE w:document [ <!ENTITY y SYSTEM "http://10.0.0.5:8080/admin/usuarios"> ]> … <cliente>&y;</cliente>…'],
+    ['11:30', 'mayorista_sur', 'catalogo-sur.docx › word/document.xml', '<?xml version="1.0"?> <w:document><w:body><w:t>Catálogo sur 2026</w:t>…'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'IP', 'Petición', 'Regla', 'Acción'],
+  rows: [
+    ['09:12:04', '198.51.100.20', 'POST /api/pedido  (application/xml, 1,2 KB)', '-', 'pass'],
+    ['09:47:31', '192.0.2.88', 'POST /api/pedido  (application/xml, 0,9 KB)', '-', 'pass'],
+    ['10:20:16', '203.0.113.66', 'POST /api/pedido  (application/xml, 0,4 KB)', '9599100 XML eXternal Entity: Local / Remote File Inclusion attempt', 'block (403)'],
+    ['10:42:09', '203.0.113.66', 'POST /api/catalogo  (multipart, catalogo-otono.docx, 14 KB)', '-', 'pass'],
+    ['10:55:40', '203.0.113.66', 'POST /api/catalogo  (multipart, catalogo-invierno.docx, 14 KB)', '-', 'pass'],
+    ['11:02:13', '203.0.113.66', 'POST /admin/login  usuario=admin', '-', 'pass (200)'],
+    ['11:30:52', '198.51.100.31', 'POST /api/catalogo  (multipart, catalogo-sur.docx, 220 KB)', '-', 'pass'],
+  ],
+  cls: r => r[4].startsWith('block') ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Proceso', 'Acción', 'Destino'],
+  rows: [
+    ['09:12:05', 'php-fpm', 'lee archivo', '/srv/tienda/plantillas/pedido.html'],
+    ['09:47:32', 'php-fpm', 'lee archivo', '/srv/tienda/dtd/pedido.dtd'],
+    ['10:42:10', 'php-fpm', 'lee archivo', '/srv/tienda/.env'],
+    ['10:55:41', 'php-fpm', 'conexión de red', '10.0.0.5:8080 (panel interno)  GET /admin/usuarios'],
+    ['11:30:53', 'php-fpm', 'lee archivo', '/srv/tienda/plantillas/catalogo.html'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+runLab('xml-trampa', [
+  {q: '¿Qué archivo subido se llevó la configuración de la tienda?', type: 'text', ph: 'nombre del archivo',
+   accept: a => ['catalogo-otono.docx', 'catalogo-otono'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Cruza la evidencia 1 con la 3: a las 10:42 el servidor leyó un archivo que una web no lee al importar un catálogo.',
+   explain: '<b>catalogo-otono.docx.</b> Dentro de su <code>word/document.xml</code> declara una entidad externa <code>x</code> que apunta a <code>file:///srv/tienda/.env</code> y la usa en <code>&lt;cliente&gt;&amp;x;&lt;/cliente&gt;</code>. El servidor rellenó el hueco con el archivo y lo devolvió en la respuesta (evidencia 4).'},
+  {q: 'El pedido-0392.xml también lleva <code>&lt;!DOCTYPE</code>. ¿Es un ataque?', type: 'choice',
+   options: ['Sí: cualquier DOCTYPE es un ataque', 'No: apunta a la DTD de pedidos de la propia tienda y no usa ninguna entidad. Pero demuestra que el lector carga DTD, que es justo lo que aprovecha el ataque', 'No, porque no lleva corchetes'], correct: 1,
+   explain: '<b>Es legítimo, pero es la pista.</b> Deco Lucía usa la DTD oficial de pedidos (<code>/srv/tienda/dtd/pedido.dtd</code>, se ve en el EDR). Que el lector cargue DTD y sustituya entidades es lo que permite el XXE: por eso OWASP recomienda desactivarlas del todo.'},
+  {q: '¿Qué palabra de la declaración hace que la entidad se rellene con un archivo o una dirección de fuera del documento?', type: 'text', ph: 'palabra',
+   accept: a => norm(a).replace(/\s/g, '') === 'system',
+   hint: 'Está entre el nombre de la entidad y la ruta entre comillas.',
+   explain: '<b>SYSTEM</b> (o <code>PUBLIC</code>). Una entidad normal lleva su valor entre comillas (<code>&lt;!ENTITY tienda "Muebles Sol"&gt;</code>); con <code>SYSTEM</code> el valor es una dirección: <code>file://</code> para un archivo del servidor, <code>http://</code> para una petición.'},
+  {q: '¿Qué regla del WAF saltó con el primer intento del atacante? (el número)', type: 'text', ph: 'número de regla',
+   accept: a => norm(a).replace(/\s/g, '') === '9599100',
+   hint: 'Mira la petición de las 10:20 en la evidencia 2.',
+   explain: '<b>9599100</b>, «XML eXternal Entity: Local / Remote File Inclusion attempt», del plugin XXE para el OWASP CRS: busca <code>&lt;!ENTITY … SYSTEM</code> con <code>file:</code>, <code>http:</code>… en el cuerpo de la petición. Bloqueó el pedido-0393.xml, que iba a por <code>/etc/passwd</code>.'},
+  {q: 'Si el WAF bloqueó el XML de las 10:20, ¿por qué pasó el .docx de las 10:42?', type: 'choice',
+   options: ['Porque el atacante cambió de IP', 'Porque un .docx es un ZIP: el XML viaja comprimido dentro y el WAF no ve el DOCTYPE ni el ENTITY; el servidor sí lo descomprime y lo lee', 'Porque los .docx no pueden llevar XML'], correct: 1,
+   wrong: '✗ Mira la IP y el tipo de archivo de las dos peticiones en la evidencia 2.',
+   explain: '<b>Iba comprimido.</b> Misma IP (203.0.113.66), otro formato: Word, Excel y PowerPoint son ZIP con XML dentro, y las imágenes SVG son XML. Por eso el arreglo tiene que estar en el lector de XML del servidor, no solo en el WAF.'},
+  {q: '¿Qué máquina interna intentó alcanzar después? (IP:puerto)', type: 'text', ph: 'IP:puerto',
+   accept: a => ['10.0.0.5:8080', 'http://10.0.0.5:8080'].includes(norm(a).replace(/\s/g, '').replace(/\/$/, '')),
+   hint: 'Evidencia 3: una conexión de red de php-fpm a las 10:55.',
+   explain: '<b>10.0.0.5:8080</b>, el panel interno. Con una entidad <code>SYSTEM "http://…"</code> el servidor hace la petición por él: desde internet no se llega a esa máquina, pero desde web01 sí (es un SSRF a través del XXE).'},
+  {q: '¿Qué opción del código hace que libxml sustituya las entidades por su contenido?', type: 'text', ph: 'opción',
+   accept: a => norm(a).replace(/\s/g, '').toUpperCase() === 'LIBXML_NOENT',
+   hint: 'Evidencia 4: la llamada a loadXML lleva dos opciones; una carga la DTD y la otra sustituye las entidades.',
+   explain: '<b>LIBXML_NOENT.</b> Su nombre engaña: significa «no dejes entidades», es decir, sustitúyelas. Desde libxml 2.9.0 la sustitución viene desactivada; el programador la activó a mano, junto con <code>LIBXML_DTDLOAD</code>.'},
+  {q: '¿Qué cambio cierra el agujero de raíz?', type: 'choice',
+   options: ['Poner el WAF a bloquear también las subidas de /api/catalogo', 'Desactivar las DTD y las entidades externas en el lector de XML (quitar LIBXML_NOENT y LIBXML_DTDLOAD y rechazar los DOCTYPE)', 'Cambiar la contraseña de la base de datos'], correct: 1,
+   wrong: '✗ Ayuda, pero el lector seguiría obedeciendo entidades externas. Mira el código de la evidencia 4.',
+   explain: '<b>Arreglar el lector.</b> Es lo primero que dice la OWASP XXE Prevention Cheat Sheet: desactivar las DTD siempre que se pueda. Cambiar todas las claves del <code>.env</code> es obligatorio (ya están fuera), y el WAF es una capa extra, pero ninguna de las dos cosas evita el siguiente XXE.'},
+], 'N4{sin_dtd_no_hay_trampa}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
