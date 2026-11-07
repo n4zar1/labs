@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La foto de perfil · Labs N4zar1</title>
+<meta name="description" content="Reto de subida de archivos sin restricciones (CWE-434): la web ficticia de una protectora donde una «foto de perfil» resultó ser una web shell. Encuentra el archivo, quién lo subió, por qué pasó el filtro, qué ejecutó y el arreglo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La foto de perfil</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Esto no es una foto de perfil. Es una puerta trasera (subida de archivos)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Huellas Felices, la web de una protectora de animales ficticia (<code>perfil.example</code>), deja a sus voluntarios subir una foto de perfil. El lunes por la mañana alguien avisa de que la lista de voluntarios, con sus correos y teléfonos, circula por un foro. La administradora, Marta, te pasa el registro del servidor web, lo que hay en la carpeta de subidas, los procesos que se abrieron en la máquina y el código que comprueba las fotos.</p>
+    <p><b>Tu misión:</b> encuentra la «foto» que no era una foto, quién la subió, por qué la dejó pasar el filtro, qué ejecutó el servidor, qué se llevó el atacante y qué arreglo lo cierra. Chuleta: si una web guarda lo que subes sin comprobar qué es (CWE-434, «subida de archivos sin restricciones») y lo deja en una carpeta pública donde el servidor ejecuta los <code>.php</code>, un script con nombre de foto se convierte en una <i>web shell</i>: una puerta trasera que obedece órdenes por el navegador (MITRE ATT&amp;CK T1505.003).</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro del servidor web (access.log) · lunes 9/11/2026</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, ruta…)" aria-label="Buscar en el registro web"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Contenido de /var/www/html/uploads/</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (nombre, tipo…)" aria-label="Buscar en la carpeta"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Procesos nuevos en el servidor (Sysmon para Linux, evento 1)</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (proceso, padre…)" aria-label="Buscar en los procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · El código que comprueba la foto y la configuración del servidor</h3></div>
+    <pre class="code">// subir_foto.php (extracto)
+$nombre = $_FILES['foto']['name'];          // el nombre que manda el usuario
+if (<b>strpos($nombre, '.jpg') !== false</b>) {   // «¿lleva .jpg?»
+    move_uploaded_file($_FILES['foto']['tmp_name'],
+        '<b>/var/www/html/uploads/</b>' . $nombre);  // carpeta pública, mismo nombre
+}
+
+# nginx.conf (extracto)
+root /var/www/html;
+location ~ <b>\.php$</b> {                        # cualquier .php, también en /uploads/
+    fastcgi_pass unix:/run/php/php-fpm.sock;
+}</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Marta: borrar <code>foto.jpg.php</code> (después de guardar una copia para el análisis), buscar otros scripts en <code>uploads/</code> y en el resto de la web, cambiar la contraseña de la base de datos que estaba en <code>config.php</code>, avisar a los voluntarios afectados y, si hace falta, a la autoridad de protección de datos. Para que no vuelva a pasar: lista de extensiones permitidas (.jpg, .png, .webp) comprobando el contenido real del archivo, un nombre nuevo generado por la web, guardar las fotos fuera de la carpeta pública (o en otro dominio) y que en <code>uploads/</code> no se ejecute nada. Para vigilarlo: alerta por peticiones a <code>.php</code> dentro de <code>/uploads/</code> y por el servidor web lanzando consolas (regla Sigma «Suspicious Process By Web Server Process»).</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Web, voluntarios, dominios, IPs y procesos ficticios; ningún comando de esta página funciona contra nadie y nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Petición', 'Estado'],
+  rows: [
+    ['08:12:03', '198.51.100.24', 'POST /perfil/foto (gato_luna.jpg)', '200'],
+    ['08:12:04', '198.51.100.24', 'GET /uploads/gato_luna.jpg', '200'],
+    ['09:40:11', '203.0.113.66', 'POST /perfil/foto (avatar.php)', '200 · «Solo se admiten fotos .jpg»'],
+    ['09:41:27', '203.0.113.66', 'POST /perfil/foto (foto.jpg.php)', '200'],
+    ['09:41:45', '203.0.113.66', 'GET /uploads/foto.jpg.php', '200'],
+    ['09:42:02', '203.0.113.66', 'POST /uploads/foto.jpg.php', '200'],
+    ['09:43:30', '203.0.113.66', 'POST /uploads/foto.jpg.php', '200'],
+    ['09:44:51', '203.0.113.66', 'GET /uploads/voluntarios.csv', '200 · 182 KB'],
+    ['10:05:19', '192.0.2.77', 'POST /perfil/foto (yo_y_bruno.png)', '200 · «Solo se admiten fotos .jpg»'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Archivo', 'Tamaño', 'Subido', 'Tipo real del contenido'],
+  rows: [
+    ['gato_luna.jpg', '412 KB', '08:12:03', 'Imagen JPEG 1080×1080'],
+    ['perro_trufa.jpg', '388 KB', 'viernes', 'Imagen JPEG 1080×1080'],
+    ['foto.jpg.php', '3 KB', '09:41:27', 'Texto: script PHP'],
+    ['voluntarios.csv', '182 KB', '09:44:40', 'Texto: tabla con nombres, correos y teléfonos'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Proceso padre', 'Proceso nuevo', 'Línea de comandos'],
+  rows: [
+    ['07:00:01', 'cron', 'sh', 'sh -c /usr/local/bin/copia_seguridad.sh'],
+    ['09:42:02', 'php-fpm', 'sh', 'sh -c whoami'],
+    ['09:43:30', 'php-fpm', 'sh', 'sh -c cat /var/www/html/config.php'],
+    ['09:44:40', 'php-fpm', 'mysqldump', 'mysqldump huellas voluntarios --result-file=/var/www/html/uploads/voluntarios.csv'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+const sin = a => norm(a).replace(/\s/g, '');
+
+runLab('foto-de-perfil', [
+  {q: '¿Cómo se llama la «foto» que en realidad es un script?', type: 'text', ph: 'nombre del archivo',
+   accept: a => sin(a).replace(/^.*\//, '') === 'foto.jpg.php',
+   hint: 'Evidencia 2: compara el nombre de cada archivo con su tipo real.',
+   explain: '<b>foto.jpg.php</b>. Pesa 3 KB y su contenido es un script PHP, no una imagen. El nombre está pensado para pasar por foto en un vistazo rápido: lleva «.jpg»… pero acaba en «.php».'},
+  {q: '¿Desde qué IP se subió?', type: 'text', ph: 'IP',
+   accept: a => sin(a) === '203.0.113.66',
+   hint: 'Evidencia 1: busca el POST /perfil/foto con ese nombre.',
+   explain: '<b>203.0.113.66</b>, a las 09:41:27. Un minuto antes la misma IP había probado con <code>avatar.php</code> y la web lo rechazó: el atacante estaba tanteando el filtro.'},
+  {q: '¿Por qué el filtro rechazó avatar.php pero dejó pasar foto.jpg.php?', type: 'choice',
+   options: ['Porque foto.jpg.php era más pequeño', 'Porque el filtro solo mira si el nombre contiene «.jpg» en algún sitio, no cómo acaba ni qué hay dentro', 'Porque el atacante tenía cuenta de administrador', 'Porque nginx no deja subir archivos .php'], correct: 1,
+   explain: '<b>Doble extensión.</b> <code>strpos($nombre, \'.jpg\')</code> solo pregunta «¿aparece .jpg?». <code>foto.jpg.php</code> lo contiene, así que pasa. OWASP lo pone como ejemplo: las dobles extensiones como <code>.jpg.php</code> se saltan una comprobación así. Por cierto, el mismo filtro rechaza a un voluntario legítimo con <code>yo_y_bruno.png</code>: es malo en las dos direcciones.'},
+  {q: 'Cuando alguien pide /uploads/foto.jpg.php, ¿qué hace el servidor?', type: 'choice',
+   options: ['Lo descarga como imagen', 'Lo ejecuta como PHP, porque la regla de nginx manda a PHP todo lo que acaba en .php, también dentro de /uploads/', 'Muestra un error 404', 'Lo abre en el móvil del usuario'], correct: 1,
+   explain: '<b>Lo ejecuta.</b> Lo que manda es el final del nombre: <code>location ~ \\.php$</code> envía a php-fpm cualquier ruta que acabe en .php, esté donde esté. Por eso el GET de las 09:41:45 y los POST siguientes no descargan nada: hablan con el script.'},
+  {q: '¿Cuál fue la primera orden que el atacante ejecutó en el servidor?', type: 'text', ph: 'orden',
+   accept: a => sin(a).replace(/^sh-c/, '') === 'whoami',
+   hint: 'Evidencia 3: procesos hijos de php-fpm, cruzados con las horas de la evidencia 1.',
+   explain: '<b>whoami</b>, a las 09:42:02, justo en el segundo del primer POST al script. Es lo primero que hace casi todo el mundo: «¿con qué usuario estoy?». Un servidor web lanzando <code>sh</code> es justo lo que caza la regla Sigma «Suspicious Process By Web Server Process».'},
+  {q: '¿Qué archivo leyó después para sacar la contraseña de la base de datos?', type: 'text', ph: 'nombre del archivo',
+   accept: a => sin(a).replace(/^.*\//, '') === 'config.php',
+   hint: 'Evidencia 3, 09:43:30.',
+   explain: '<b>config.php</b>. Ahí suele estar la contraseña de la base de datos. Con ella, a las 09:44:40 vuelca la tabla de voluntarios con <code>mysqldump</code>.'},
+  {q: '¿Cómo sacó los datos de los voluntarios de la web?', type: 'choice',
+   options: ['Por correo electrónico', 'Los dejó en /uploads/voluntarios.csv, una carpeta pública, y se los descargó con un GET normal', 'Con un pendrive', 'Imprimiéndolos'], correct: 1,
+   explain: '<b>Por la misma puerta.</b> Guardó el volcado en la carpeta pública de subidas y a las 09:44:51 lo descargó (182 KB). Para el registro es solo «un GET a uploads», por eso hay que vigilar qué tipo de archivos se piden ahí.'},
+  {q: '¿Qué técnica de MITRE ATT&CK describe lo que dejó el atacante?', type: 'choice',
+   options: ['T1566 Phishing', 'T1505.003 Web Shell', 'T1110 Fuerza bruta', 'T1486 Cifrado de datos (ransomware)'], correct: 1,
+   explain: '<b>T1505.003 Web Shell</b>: «un script web colocado en un servidor web accesible» que da acceso persistente. Para detectarla, MITRE señala justo lo que has visto: un script nuevo en las carpetas de la web y el proceso del servidor web lanzando consolas o utilidades del sistema.'},
+  {q: '¿Qué arreglo lo cierra de verdad?', type: 'choice',
+   options: ['Cambiar el filtro para que busque «.php» en el nombre', 'Bloquear la IP 203.0.113.66', 'Lista de extensiones permitidas comprobando el contenido real, nombre nuevo generado por la web, guardar fuera de la carpeta pública y no ejecutar nada en /uploads/', 'Pedir a los voluntarios que suban fotos más pequeñas'], correct: 2,
+   wrong: '✗ Eso no lo cierra: el atacante prueba otra extensión (.phtml, .phar…) u otra IP. Piensa en dónde se guarda el archivo y en quién decide su nombre.',
+   explain: '<b>Las cuatro capas.</b> Es lo que recomiendan CWE-434 y OWASP: aceptar solo lo conocido («accept known good»), generar un nombre nuevo en vez de usar el del usuario, guardar las subidas fuera de la raíz web y, si tienen que estar dentro, que esa carpeta no ejecute scripts. Y como ya se ejecutó código, cambiar la contraseña de la base de datos y revisar toda la web.'},
+], 'N4{la_foto_era_una_puerta}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
