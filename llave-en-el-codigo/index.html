@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La llave en el código · Labs N4zar1</title>
+<meta name="description" content="Reto de secretos expuestos (CWE-798): una tienda ficticia subió su .env con la clave de AWS a GitHub público. Encuentra el commit, quién usó la clave, desde dónde, qué intentó crear, cómo lo avisó AWS y qué se hace primero.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La llave en el código</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Subió su código a GitHub… y con él, la llave de la empresa».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Cestas del Monte, una tienda online ficticia de cestas de regalo. Martes 3 de noviembre de 2026. Por la mañana, Iván, el programador, publica en GitHub el código de la tienda para enseñarlo en una entrevista de trabajo. A los pocos minutos llega un correo de AWS. Iván se asusta, borra la clave del repositorio con otro commit y te escribe: «Ya lo he quitado, ¿estamos bien?». Te pasa el historial del repositorio, el registro de CloudTrail de esa cuenta de AWS y el correo.</p>
+    <p><b>Tu misión:</b> encuentra qué archivo y qué commit expusieron la clave, si borrarla sirvió de algo, cuánto tardaron en usarla, desde dónde, qué intentaron hacer, cómo lo avisó AWS y qué hay que hacer primero. Chuleta: una clave de acceso de AWS son dos partes, el ID (empieza por <code>AKIA</code>) y la clave secreta. Quien tenga las dos actúa como ese usuario. CloudTrail apunta cada llamada a la API de AWS con la hora (UTC), la clave usada (<code>accessKeyId</code>) y la IP de origen (<code>sourceIPAddress</code>).</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Historial del repositorio público (git log -p, resumido) · horas en UTC</h3></div>
+    <pre class="code">commit 8e21d07  (HEAD -> main, origin/main)
+Date:   03/11/2026 10:31:40
+    quita la clave
+
+  .env
+  - AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+  - AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+commit 4b7f9a3
+Date:   03/11/2026 10:14:05
+    primera versión de la tienda
+
+  .env (archivo nuevo)
+  + DB_HOST=db.cestasdelmonte.example
+  + AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+  <b>+ AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</b>
+  tienda/subir_fotos.py (archivo nuevo)
+  + s3 = boto3.client("s3")   # lee la clave del .env
+  .gitignore
+    (no existe)
+
+git push origin main → 03/11/2026 10:14:05 (repositorio público)</pre>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · CloudTrail · cuenta de Cestas del Monte · 03/11/2026 (UTC)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (evento, IP, clave…)" aria-label="Buscar en CloudTrail"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Correo recibido · 03/11/2026 10:14 UTC</h3></div>
+    <pre class="code">De: Amazon Web Services (aviso ficticio para este reto)
+Asunto: Your AWS Access Key is Exposed
+
+Hemos detectado que la clave de acceso AKIAIOSFODNN7EXAMPLE del usuario
+IAM tienda-web aparece en un repositorio público de GitHub.
+Hemos aplicado al usuario la política <b>AWSCompromisedKeyQuarantineV3</b>
+para limitar acciones. <b>La clave sigue activa.</b>
+Desactívela y sustitúyala, y revise CloudTrail.</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría yo: desactivar YA la clave AKIAIOSFODNN7EXAMPLE en IAM y crear otra (o mejor, que la app use un rol y no claves fijas); revisar en CloudTrail todo lo que hizo esa clave desde las 10:14 (terminar lo que llegara a crear, mirar si dejó usuarios o claves nuevas y valorar la fuga del archivo de clientes); solo después limpiar el historial, sabiendo que los clones y forks que ya existan la conservan. Para que no vuelva a pasar: los secretos en un gestor (AWS Secrets Manager, Vault…), el <code>.env</code> en <code>.gitignore</code> y la push protection de GitHub activada para que bloquee la subida. En el SOC, una alerta por cada <code>AttachUserPolicy</code> con la política de cuarentena y otra por uso de claves desde IPs que no son las nuestras.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, claves (las de ejemplo de la documentación de AWS), dominios e IPs ficticios; nada de esta página funciona contra nadie y nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora (UTC)', 'eventName', 'accessKeyId', 'sourceIPAddress', 'Detalle'],
+  rows: [
+    ['09:58:12', 'PutObject', 'AKIAIOSFODNN7EXAMPLE', '10.20.0.15', 'tienda-web sube una foto de producto (servidor de la tienda)'],
+    ['10:12:40', 'PutObject', 'AKIAIOSFODNN7EXAMPLE', '10.20.0.15', 'tienda-web sube una foto de producto (servidor de la tienda)'],
+    ['10:14:15', 'AttachUserPolicy', '—', 'AWS', 'Usuario tienda-web · PolicyArn: arn:aws:iam::aws:policy/AWSCompromisedKeyQuarantineV3'],
+    ['10:15:02', 'GetCallerIdentity', 'AKIAIOSFODNN7EXAMPLE', '203.0.113.45', '¿De quién es esta clave? → usuario tienda-web'],
+    ['10:15:09', 'ListBuckets', 'AKIAIOSFODNN7EXAMPLE', '203.0.113.45', '3 buckets'],
+    ['10:15:21', 'DescribeRegions', 'AKIAIOSFODNN7EXAMPLE', '198.51.100.23', 'Lista de regiones'],
+    ['10:15:40', 'RunInstances', 'AKIAIOSFODNN7EXAMPLE', '198.51.100.23', 'p3.16xlarge × 20 · eu-west-1 · AccessDenied'],
+    ['10:15:41', 'RunInstances', 'AKIAIOSFODNN7EXAMPLE', '198.51.100.23', 'p3.16xlarge × 20 · us-east-1 · AccessDenied'],
+    ['10:15:43', 'CreateUser', 'AKIAIOSFODNN7EXAMPLE', '203.0.113.45', 'Usuario «backup-admin» · AccessDenied'],
+    ['10:16:05', 'GetObject', 'AKIAIOSFODNN7EXAMPLE', '203.0.113.45', 'cestas-pedidos/clientes-2026.csv · Success'],
+    ['10:31:52', 'GetCallerIdentity', 'AKIAIOSFODNN7EXAMPLE', '203.0.113.45', 'La clave sigue funcionando'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+const sin = a => norm(a).replace(/\s/g, '');
+
+runLab('llave-en-el-codigo', [
+  {q: '¿Qué archivo llevó la clave secreta de AWS al repositorio?', type: 'text', ph: 'nombre del archivo',
+   accept: a => ['.env', 'env'].includes(sin(a)),
+   hint: 'Evidencia 1: busca la línea AWS_SECRET_ACCESS_KEY con un +.',
+   explain: '<b>.env</b>, el archivo de configuración. Está pensado para quedarse en tu ordenador, pero sin un <code>.gitignore</code> que lo excluya (fíjate: no existía), <code>git add .</code> lo sube con todo lo demás. Es lo que MITRE llama T1552.001 «Credentials In Files», y CWE-798: credenciales escritas en el código.'},
+  {q: '¿En qué commit entró la clave en el repositorio?', type: 'text', ph: 'hash del commit',
+   accept: a => sin(a).startsWith('4b7f9a3'),
+   hint: 'El commit que la AÑADE (+), no el que la quita.',
+   explain: '<b>4b7f9a3</b>, «primera versión de la tienda», subido a las 10:14:05 a un repositorio público.'},
+  {q: 'Iván la borró en el commit 8e21d07. ¿Se puede seguir leyendo la clave en GitHub?', type: 'choice',
+   options: ['No: el último commit ya no la tiene', 'Sí: sigue en el commit 4b7f9a3 del historial, y en cualquier clon o fork hecho antes', 'Solo si eres el dueño del repositorio', 'No: GitHub borra solo los secretos'], correct: 1,
+   explain: '<b>Sí.</b> Git guarda todas las versiones: el commit que la quita es un cambio más, y el antiguo sigue ahí para quien mire el historial. La guía de GitHub lo avisa: aunque reescribas el historial, los commits pueden seguir accesibles en clones, forks o vistas en caché. Por eso lo primero es revocar la clave, no borrarla.'},
+  {q: '¿Cuántos minutos pasaron entre el push y la primera llamada con la clave desde fuera?', type: 'text', ph: 'minutos',
+   accept: a => ['1', 'uno', '1minuto', 'unminuto'].includes(sin(a)),
+   hint: 'Push a las 10:14:05 (evidencia 1). Busca en CloudTrail la primera llamada desde una IP que no sea 10.20.0.15.',
+   explain: '<b>Un minuto</b> (10:14:05 → 10:15:02). Hay bots que leen sin parar todo lo que se sube a GitHub buscando claves. En el experimento de Comparitech usaron la clave en un minuto; en los de Orca y Unit 42, en pocos minutos.'},
+  {q: '¿Desde qué IP comprobó el atacante de quién era la clave?', type: 'text', ph: 'IP',
+   accept: a => sin(a) === '203.0.113.45',
+   hint: 'Evidencia 2: el evento GetCallerIdentity de las 10:15:02.',
+   explain: '<b>203.0.113.45.</b> <code>GetCallerIdentity</code> es la primera pregunta de casi cualquier atacante: «¿a quién pertenece esta clave?». La tienda solo usa la clave desde su servidor (10.20.0.15): cualquier otra IP es una alerta. Fíjate en que hay dos IPs (203.0.113.45 y 198.51.100.23): suelen repartirse el trabajo o usar proxies.'},
+  {q: '¿Qué intentaban crear con RunInstances?', type: 'choice',
+   options: ['Copias de seguridad de la tienda', 'Servidores grandes con GPU (20 p3.16xlarge por región) a cuenta de la empresa, típicamente para minar criptomonedas', 'Un usuario nuevo', 'Nada: es una llamada de solo lectura'], correct: 1,
+   explain: '<b>Servidores caros a cuenta de la tienda.</b> En el honeypot de Comparitech hubo más de mil llamadas RunInstances en el primer minuto, pidiendo las máquinas más grandes. Aquí salieron con AccessDenied porque AWS ya había puesto la cuarentena; lo mismo pasó con el CreateUser de las 10:15:43, que buscaba dejar una puerta trasera.'},
+  {q: '¿Qué evento de CloudTrail demuestra que AWS detectó la clave expuesta?', type: 'text', ph: 'eventName',
+   accept: a => sin(a) === 'attachuserpolicy',
+   hint: 'Mira qué evento menciona la política del correo (evidencia 3).',
+   explain: '<b>AttachUserPolicy</b> con <code>AWSCompromisedKeyQuarantineV3</code>, a los diez segundos del push. Unit 42 recomienda una alerta del SIEM justo para ese evento: si aparece, alguien ya ha visto tu clave en público.'},
+  {q: 'La cuarentena estaba puesta. ¿Se llevaron algo igualmente?', type: 'choice',
+   options: ['No: la cuarentena bloquea todo', 'Sí: a las 10:16:05, un GetObject con Success sobre cestas-pedidos/clientes-2026.csv', 'Solo la lista de regiones', 'No se puede saber con CloudTrail'], correct: 1,
+   explain: '<b>Sí: el archivo de clientes.</b> La política de cuarentena niega acciones concretas (las más usadas para fraude), pero no desactiva la clave: lo que no niega y el usuario podía hacer se sigue pudiendo hacer. Por eso a las 10:31:52, con la clave «borrada» del repositorio, todavía funciona.'},
+  {q: '¿Qué se hace PRIMERO?', type: 'choice',
+   options: ['Reescribir el historial de Git para que no quede rastro', 'Hacer privado el repositorio', 'Desactivar la clave en IAM y crear otra (revocar y rotar), y después revisar CloudTrail y limpiar', 'Esperar a ver si AWS lo arregla solo'], correct: 2,
+   wrong: '✗ Eso no impide que la clave siga funcionando. ¿Qué la deja inservible para quien ya la tiene copiada?',
+   explain: '<b>Revocar y rotar, ya.</b> Es el primer paso de la propia guía de GitHub: una vez revocada, la copia que tenga el atacante no vale para nada. Luego, CloudTrail para ver qué hizo, limpiar lo que creara y, al final, el historial. Para que no se repita: secretos en un gestor, <code>.env</code> en <code>.gitignore</code> y push protection activada.'},
+], 'N4{la_llave_sigue_en_el_historial}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
