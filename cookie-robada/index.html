@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La cookie robada · Labs N4zar1</title>
+<meta name="description" content="Reto de robo de la cookie de sesión (MITRE T1539): entraron en la cuenta de Ana sin su contraseña ni su código. Encuentra la web falsa, la sesión robada, el viaje imposible, la alerta de Entra y el arreglo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap;word-break:break-all}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La cookie robada</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «No sabían tu contraseña. Ni tu código. Y entraron (robo de la cookie de sesión)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Muebles Olivo, una empresa ficticia. Martes por la mañana, Ana (contabilidad) recibe un correo de «factura pendiente», entra, pone su contraseña y su código de la app… y no pasa nada raro. Media hora después un proveedor llama: le han pedido por correo que cambie el número de cuenta para los pagos. Ana jura que no ha sido ella, y su cuenta tiene contraseña larga y doble factor. Te pasan el historial web de su PC, los inicios de sesión de su cuenta, las alertas de seguridad y lo que se cambió en su buzón.</p>
+    <p><b>Tu misión:</b> encuentra la web falsa, desde dónde se hizo de verdad el inicio de sesión, cómo se usó la sesión robada, qué alerta saltó, qué hizo el atacante y qué arreglo lo cierra. Chuleta: al iniciar sesión, la web te da una <b>cookie de sesión</b> (un pase). Quien la tenga es tú para la web, sin contraseña ni código (MITRE ATT&amp;CK T1539 y T1550.004). Una web falsa que hace de intermediaria (phishing con proxy o AitM) pasa tu contraseña y tu código a la web real y se queda la cookie.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Historial web del PC de Ana (proxy de la empresa) · 09:50–10:00</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (dominio, ruta…)" aria-label="Buscar en el historial web"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Inicios de sesión de ana@olivo.example (registro de inicios de sesión)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, país, sesión…)" aria-label="Buscar en los inicios de sesión"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Detecciones de riesgo (Entra ID Protection) · ana@olivo.example</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (detección, IP…)" aria-label="Buscar en las detecciones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Auditoría del buzón de Ana · 10:00–10:30</h3></div>
+    <pre class="code">10:09:44  New-InboxRule  IP 203.0.113.77
+  Name:                 <b>.</b>
+  SubjectOrBodyContainsWords: "factura", "pago", "IBAN"
+  MoveToFolder:         <b>RSS Feeds</b>
+  MarkAsRead:           True
+
+10:14:02  Send  IP 203.0.113.77
+  To:      administracion@proveedor-pinos.example
+  Subject: RE: Factura 2026-1187
+  Body:    «A partir de este mes, por favor, ingresad en la nueva cuenta…»</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría yo: revocar ya todas las sesiones de Ana (en Entra: «Revocar sesiones», o <code>Revoke-MgUserSignInSession</code>), cambiar su contraseña, borrar la regla «.» y avisar al proveedor por teléfono de que el cambio de cuenta es falso; bloquear login-olivo.example y las IP 198.51.100.23 y 203.0.113.77; buscar en el proxy a quién más le llegó el correo; y para que no se repita, llaves de acceso o FIDO2 (no sirven en una web falsa), acceso condicional que exija equipos de la empresa, sesiones más cortas y evaluación continua de acceso. En el navegador, Chrome para Windows ya ata las sesiones de Google al dispositivo (DBSC).</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, dominios, IPs y sesiones ficticios; nada de esta página funciona contra nadie y nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'Dominio', 'Ruta', 'Detalle'],
+  rows: [
+    ['09:51:03', 'outlook.office.example', '/mail/inbox', 'Correo: «Factura pendiente de firma»'],
+    ['09:57:12', 'login-olivo.example', '/common/oauth2/authorize', 'Página de inicio de sesión (copia de la real)'],
+    ['09:57:40', 'login-olivo.example', '/common/login', 'POST usuario + contraseña'],
+    ['09:58:02', 'login-olivo.example', '/common/SAS/ProcessAuth', 'POST código de la app'],
+    ['09:58:05', 'office.example', '/', 'Redirección a la web real (Ana ve su correo normal)'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'IP', 'País', 'Navegador', 'Tipo', 'Autenticación', 'Sesión'],
+  rows: [
+    ['08:31:15', '192.0.2.10', 'España (Madrid)', 'Chrome · Windows', 'Interactivo', 'Contraseña + app (MFA)', 'a71d…09e'],
+    ['09:58:03', '198.51.100.23 (proveedor de hosting)', 'Países Bajos', 'Chrome · Windows', 'Interactivo', 'Contraseña + app (MFA)', '8f3a…c21'],
+    ['10:06:58', '192.0.2.10', 'España (Madrid)', 'Chrome · Windows', 'No interactivo', 'Token de sesión', 'a71d…09e'],
+    ['10:07:31', '203.0.113.77', 'Brasil (São Paulo)', 'Firefox · Linux', 'No interactivo', 'MFA ya cumplida en el token', '8f3a…c21'],
+    ['10:09:40', '203.0.113.77', 'Brasil (São Paulo)', 'Firefox · Linux', 'No interactivo', 'MFA ya cumplida en el token', '8f3a…c21'],
+  ],
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Detección', 'Riesgo', 'IP', 'Detalle'],
+  rows: [
+    ['10:07:31', 'Anomalous token', 'Alto', '203.0.113.77', 'Token usado desde una ubicación y un navegador que no son los habituales'],
+    ['10:07:31', 'Atypical travel', 'Medio', '203.0.113.77', 'España (Madrid, 10:06) → Brasil (10:07)'],
+    ['11:40:00', 'Attacker in the Middle', 'Alto', '198.51.100.23', 'Sesión enlazada con un proxy inverso malicioso (detección diferida)'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+const sin = a => norm(a).replace(/\s/g, '');
+
+runLab('cookie-robada', [
+  {q: '¿En qué dominio falso puso Ana su contraseña y su código?', type: 'text', ph: 'dominio',
+   accept: a => sin(a).replace(/^https?:\/\//, '').replace(/\/.*$/, '') === 'login-olivo.example',
+   hint: 'Evidencia 1: ¿dónde están los POST con la contraseña y el código?',
+   explain: '<b>login-olivo.example.</b> Una copia del inicio de sesión real. No se limita a guardar la contraseña: hace de intermediaria con la web de verdad. Por eso, al terminar, Ana acaba en su correo de siempre y no sospecha nada.'},
+  {q: 'El inicio de sesión de las 09:58 con contraseña y código, ¿desde qué IP se hizo?', type: 'text', ph: 'IP',
+   accept: a => sin(a).replace(/\(.*$/, '') === '198.51.100.23',
+   hint: 'Evidencia 2: busca la línea de las 09:58.',
+   explain: '<b>198.51.100.23</b>, de un proveedor de hosting en Países Bajos, no la IP de la oficina (192.0.2.10). En un phishing con proxy quien habla con la web real es el servidor del atacante: él inicia sesión con lo que Ana teclea y recibe la cookie. Es la primera pista que miro: un inicio de sesión «correcto, con MFA» desde una IP de hosting.'},
+  {q: 'El registro dice «Contraseña + app (MFA)». ¿Cómo pasó el atacante el doble factor?', type: 'choice',
+   options: ['Adivinó el código', 'La web falsa le pasó a la web real el código que Ana escribió, en el mismo momento, y se quedó la cookie que le dio la web real', 'El doble factor estaba desactivado', 'Clonó el móvil de Ana'], correct: 1,
+   explain: '<b>La web falsa estaba en medio.</b> Ana puso su código de verdad y la web falsa lo reenvió al instante. El MFA funcionó; lo que se robó fue lo que viene después: la cookie. Microsoft lo explica así: con la cookie, el atacante se salta la autenticación «even if the target\'s MFA is enabled».'},
+  {q: '¿Desde qué país se usó la sesión robada a las 10:07?', type: 'text', ph: 'país',
+   accept: a => ['brasil', 'brazil', 'br'].includes(sin(a).replace(/\(.*$/, '')),
+   hint: 'Evidencia 2: sigue el identificador de sesión de las 09:58.',
+   explain: '<b>Brasil</b> (203.0.113.77), con Firefox en Linux. Ana usa Chrome en Windows desde Madrid. Y fíjate en la columna Autenticación: «MFA ya cumplida en el token». No hubo contraseña ni código: solo el pase.'},
+  {q: '¿Qué tienen en común la línea de las 09:58 y la de las 10:07?', type: 'choice',
+   options: ['La misma IP', 'El mismo navegador', 'La misma sesión (8f3a…c21): es la misma cookie usada desde otro sitio', 'Nada'], correct: 2,
+   explain: '<b>La misma sesión.</b> Es la firma del robo de cookie: un solo identificador de sesión que aparece con otra IP, otro país y otro navegador (MITRE T1550.004). La sesión legítima de Ana (a71d…09e) sigue a la vez en Madrid: cinco minutos entre Madrid y São Paulo, unos 8.400 km, es un viaje imposible.'},
+  {q: '¿Qué detección de Entra ID Protection saltó en tiempo real con riesgo alto por esa cookie reutilizada?', type: 'text', ph: 'nombre de la detección',
+   accept: a => sin(a).includes('anomaloustoken') || sin(a).includes('tokenanomalo'),
+   hint: 'Evidencia 3, la línea de las 10:07 con riesgo alto.',
+   explain: '<b>Anomalous token.</b> Según Microsoft, marca un token «played from an unfamiliar location» y, si la ubicación, la IP o el navegador no cuadran, hay que tratarlo como un posible robo y reutilización del token. Más tarde saltó también «Attacker in the Middle», que enlaza la sesión con el proxy malicioso.'},
+  {q: '¿Qué hizo el atacante dentro del buzón para que Ana no se enterase?', type: 'choice',
+   options: ['Borró todos sus correos', 'Creó una regla llamada «.» que manda a «RSS Feeds», marcados como leídos, los correos con «factura», «pago» o «IBAN», y pidió al proveedor que pagara en otra cuenta', 'Cambió la foto de perfil', 'Reenvió todo a una dirección externa'], correct: 1,
+   explain: '<b>Una regla escondida y un fraude de facturas.</b> Es lo que Microsoft describe en su informe de AiTM de 2022: tras robar la cookie, reglas de bandeja de entrada para ocultar las respuestas y correos de «cambio de cuenta bancaria» a proveedores (BEC). Defender for Cloud Apps tiene una alerta para estas reglas sospechosas.'},
+  {q: '¿Qué arreglo echa al atacante y evita que se repita?', type: 'choice',
+   options: ['Solo activar el doble factor (ya lo tenía)', 'Pedir a Ana que no abra más correos', 'Revocar todas las sesiones de Ana, cambiar la contraseña, borrar la regla y avisar al proveedor; y después llaves de acceso o FIDO2, acceso condicional con equipos de la empresa y sesiones cortas', 'Borrar las cookies del navegador de Ana'], correct: 2,
+   wrong: '✗ Eso no echa al atacante: su copia de la cookie sigue valiendo hasta que la sesión se revoque o caduque.',
+   explain: '<b>Revocar + limpiar + resistente a phishing.</b> Borrar las cookies del PC de Ana no borra la copia del atacante: hay que invalidar la sesión en el servidor. Las llaves de acceso y FIDO2 están atadas al dominio real y no funcionan en login-olivo.example; el acceso condicional (equipo gestionado, IP de confianza) se comprueba cada vez que alguien usa la cookie; y atar la sesión al dispositivo (como DBSC en Chrome) hace que una cookie copiada no valga en otro equipo.'},
+], 'N4{la_cookie_era_la_llave}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
