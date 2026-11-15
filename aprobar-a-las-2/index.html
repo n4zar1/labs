@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aprobar a las 2 · Labs N4zar1</title>
+<meta name="description" content="Reto de analista SOC: una cuenta ficticia recibe nueve avisos de inicio de sesión de madrugada y al décimo alguien pulsa «Aprobar» (fatiga de MFA). Lee los inicios de sesión de Entra ID como un analista y decide cómo cerrarlo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2);white-space:pre-wrap}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>Aprobar a las 2</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Te llegan nueve avisos de inicio de sesión a las dos de la mañana. Al décimo, pulsas Aprobar».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Empresa Ejemplo, una empresa ficticia. Lucía, de administración, trabaja desde Granada. El sábado por la mañana avisa a soporte: «Esta noche el móvil no paraba de pedirme que aprobara un inicio de sesión. Al final le di a Aprobar para que se callara». Te pasan los inicios de sesión de su cuenta en Entra ID (copia en el SIEM), el registro de auditoría y lo que tenía en el móvil.</p>
+    <p><b>Tu misión:</b> reconstruye la noche: cuántas veces dijo que no, desde dónde, a qué hora entró el atacante, qué le hizo aprobar, qué hizo después y qué lo habría parado. Chuleta: <code>ResultType 0</code> = inicio correcto · <code>50126</code> = usuario o contraseña incorrectos · <code>500121</code> = falló el segundo factor (MFA). Usa el buscador.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Entra ID · inicios de sesión · lucia@empresa.example · 20/11 → 21/11</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (código, IP, país, detalle…)" aria-label="Buscar en los inicios de sesión"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Entra ID · registro de auditoría · 21/11</h3></div>
+    <pre class="code">21/11 02:14:05  User registered security info      lucia@empresa.example
+                Método: <b>Microsoft Authenticator</b> · dispositivo: <b>Pixel-7a (nuevo)</b> · IP <b>203.0.113.77</b>
+21/11 02:16:40  New-InboxRule                      lucia@empresa.example
+                Regla «.»: mover a «RSS» los correos que contengan «seguridad» o «inicio de sesión»</pre>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Móvil de Lucía · WhatsApp · 21/11 02:10</h3></div>
+    <pre class="code">Número extranjero (no está en tus contactos)
+  02:10  Hola Lucía, soy de soporte de Empresa Ejemplo. Estamos actualizando
+         la seguridad de las cuentas y te están saltando avisos por error.
+  02:10  <b>Acepta el siguiente aviso y dejarán de llegarte.</b> Gracias
+
+Configuración del doble factor de la empresa (ficticia):
+  Método: notificación push «Aprobar / Denegar»
+  Coincidencia de números: <b>no</b> · Ubicación y app en el aviso: <b>no</b>
+  Alerta por rechazos de MFA seguidos: <b>no configurada</b></pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría la empresa: revocar ya las sesiones de Lucía, cambiar su contraseña (el atacante la tenía antes de empezar), borrar el Authenticator que registró el atacante a las 02:14 y la regla de correo que escondía los avisos, revisar qué leyó o envió desde las 02:12, y activar la coincidencia de números, el contexto en el aviso (ubicación y app) y una alerta cuando se rechazan varios avisos seguidos. Y recordar a todo el mundo que soporte nunca pide aprobar un aviso. Si eres víctima en España, el 017 de INCIBE te ayuda.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, cuentas, horas, mensajes e IPs ficticios (IPs de documentación); nada sale de tu navegador. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const ATK = '203.0.113.77';
+const filas = [
+  ['20/11 08:02:11', '0', 'Outlook', '198.51.100.20', 'Granada, España', 'Correcto · MFA completado'],
+  ['20/11 13:47:30', '0', 'Teams', '198.51.100.20', 'Granada, España', 'Correcto · token existente'],
+  ['20/11 18:05:52', '0', 'Outlook', '198.51.100.20', 'Granada, España', 'Correcto · token existente'],
+  ['21/11 01:58:14', '50126', 'Outlook', ATK, 'Ámsterdam, Países Bajos', 'Usuario o contraseña incorrectos'],
+];
+for (let i = 0; i < 9; i++) {
+  filas.push(['21/11 02:' + String(3 + i).padStart(2, '0') + ':' + String((i * 17 + 9) % 60).padStart(2, '0'), '500121', 'Outlook', ATK, 'Ámsterdam, Países Bajos',
+    i === 4 ? 'MFA denied; user did not respond to mobile app notification' : 'MFA denied; user declined the authentication']);
+}
+filas.push(
+  ['21/11 02:12:41', '0', 'Outlook', ATK, 'Ámsterdam, Países Bajos', 'Correcto · MFA completado (notificación aprobada)'],
+  ['21/11 02:14:02', '0', 'My Sign-Ins', ATK, 'Ámsterdam, Países Bajos', 'Correcto · token existente'],
+  ['21/11 09:31:18', '0', 'Outlook', '198.51.100.20', 'Granada, España', 'Correcto · MFA completado'],
+);
+makeTable({
+  el: $('ev1'),
+  cols: ['Fecha y hora', 'ResultType', 'App', 'IP', 'Ubicación', 'Detalle'],
+  rows: filas,
+  cls: r => r[3] === ATK && r[1] === '0' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('aprobar-a-las-2', [
+  {q: '¿Cuántas veces falló el segundo factor (500121) esa noche?', type: 'text', ph: 'número',
+   accept: a => n(a) === '9' || n(a) === 'nueve',
+   hint: 'Escribe «500121» en el buscador y mira el contador.',
+   explain: '<b>9</b>: ocho «declined» (Lucía pulsó Denegar) y uno sin respuesta. Muchos 500121 seguidos de la misma cuenta en pocos minutos es el patrón de la fatiga de MFA (MITRE ATT&amp;CK T1621, generación de peticiones de MFA).'},
+  {q: 'Para que salte un 500121 hay que pasar antes el primer paso. ¿Qué te dice eso de la contraseña de Lucía?', type: 'choice',
+   options: ['Nada: el 500121 sale con cualquier contraseña', 'Que el atacante ya tenía su contraseña correcta: solo le faltaba el segundo factor', 'Que la contraseña caducó'], correct: 1,
+   wrong: '✗ Compara con la fila 50126 de las 01:58.',
+   explain: '<b>La contraseña era buena.</b> A las 01:58 falla con 50126 (contraseña mal escrita) y desde las 02:03 ya llega al segundo factor. Por eso, además de cerrar la sesión, hay que <b>cambiar la contraseña</b>: suele salir de una filtración o de un malware, como en el caso de Uber en 2022 (comprada en la web oscura, según Uber).'},
+  {q: '¿Desde qué IP venían las peticiones?', type: 'text', ph: 'dirección IP',
+   accept: a => n(a) === '203.0.113.77',
+   hint: 'Mira la columna IP de los 500121.',
+   explain: '<b>203.0.113.77</b>, con ubicación en Ámsterdam, cuando Lucía entra siempre desde Granada (198.51.100.20).'},
+  {q: '¿A qué hora consiguió entrar el atacante? (hh:mm)', type: 'text', ph: 'hh:mm',
+   accept: a => ['02:12', '2:12', '02:12:41'].includes(n(a)),
+   hint: 'Busca un ResultType 0 desde la IP del atacante.',
+   explain: '<b>02:12</b>, un minuto después del noveno fallo: «MFA completado (notificación aprobada)». Varios 500121 seguidos de un 0 desde una IP o un país nuevos es la regla que conviene tener como alerta.'},
+  {q: '¿Qué le hizo pulsar «Aprobar» al décimo aviso?', type: 'choice',
+   options: ['Un fallo de la app Authenticator', 'Un WhatsApp de alguien que se hacía pasar por soporte y le pedía aceptar el siguiente aviso', 'Un correo del banco'], correct: 1,
+   wrong: '✗ Mira la evidencia 3 y su hora.',
+   explain: '<b>Ingeniería social.</b> A las 02:10 le escribe un número extranjero «de soporte» y a las 02:12 aprueba. Es lo que contó el atacante de Uber en 2022: avisos sin parar y un WhatsApp haciéndose pasar por IT. Soporte nunca te pide aprobar un aviso.'},
+  {q: '¿Qué hizo el atacante a las 02:14 para poder volver sin molestar a Lucía?', type: 'choice',
+   options: ['Nada, se fue', 'Registró su propio Microsoft Authenticator en la cuenta', 'Cambió la foto de perfil'], correct: 1,
+   wrong: '✗ Mira el registro de auditoría (evidencia 2).',
+   explain: '<b>Registró su propio método de MFA</b> («User registered security info», dispositivo nuevo, misma IP). Es persistencia: aunque Lucía cambie la contraseña, si no se borra ese método el atacante conserva su segundo factor.'},
+  {q: '¿Y a las 02:16? ¿Para qué sirve esa regla de correo?', type: 'choice',
+   options: ['Para esconder los avisos de seguridad e inicio de sesión que le lleguen a Lucía', 'Para hacer copia de seguridad', 'Para filtrar publicidad'], correct: 0,
+   wrong: '✗ Lee qué palabras busca y adónde mueve los correos.',
+   explain: '<b>Para esconder pistas.</b> Mover a una carpeta que nadie mira los correos con «seguridad» o «inicio de sesión» es un clásico tras robar una cuenta (MITRE ATT&amp;CK T1564.008, reglas de correo).'},
+  {q: 'Viendo la configuración de la evidencia 3, ¿qué habría parado este ataque?', type: 'choice',
+   options: ['Pedir una contraseña más larga, solo eso', 'Coincidencia de números (para aprobar hay que teclear el número que ve quien inicia sesión), ubicación y app en el aviso y una alerta por rechazos seguidos', 'Desactivar el doble factor para que no moleste'], correct: 1,
+   wrong: '✗ El atacante ya tenía la contraseña.',
+   explain: '<b>Las tres juntas.</b> Con la coincidencia de números, Lucía no podría aprobar sin ver la pantalla del atacante; con la ubicación vería «Ámsterdam» a las dos de la mañana; y la alerta habría avisado al SOC a los pocos rechazos. Microsoft la tiene activada en todas las notificaciones de Authenticator.'},
+], 'N4{al_decimo_aviso_no_se_aprueba}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
