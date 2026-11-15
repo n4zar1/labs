@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La 301 · Labs N4zar1</title>
+<meta name="description" content="Reto de analista SOC: un servidor ficticio con el Escritorio remoto abierto a internet recibe 300 contraseñas en una noche y la 301 entra. Lee los eventos 4625, 4624, 4720 y 4732 como un analista y decide cómo cerrarlo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>La 301</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Esta noche alguien probó 300 contraseñas en este ordenador. La 301 funcionó».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Gestoría Alba, una empresa ficticia. Su servidor <code>SRV-CONTA</code> tiene el Escritorio remoto (RDP, puerto TCP 3389) abierto a internet «para trabajar desde casa». Por la mañana aparece una cuenta de administrador que nadie conoce. Te pasan el registro de Seguridad de la noche (copia en el SIEM), la regla del router y la configuración del servidor.</p>
+    <p><b>Tu misión:</b> reconstruye la línea de tiempo: desde dónde atacaron, cuántas veces, por qué los fallos salen con un tipo de inicio y no con otro, qué cuenta cayó y a qué hora, qué hizo el atacante después y cómo se cierra. Chuleta: <code>4625</code> = inicio de sesión fallido · <code>4624</code> = correcto · <code>4720</code> = cuenta creada · <code>4732</code> = añadida a un grupo local. Tipo de inicio <code>3</code> = red, <code>10</code> = escritorio remoto. Usa el buscador: hay 300 filas que no quieres leer una a una.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Registro de Seguridad · SRV-CONTA · 17/11 22:00 → 18/11 09:00</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (ID, cuenta, IP, tipo…)" aria-label="Buscar en el registro de Seguridad"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Router de la oficina · reenvío de puertos</h3></div>
+    <pre class="code">Nombre         Puerto externo   Destino               Origen permitido
+Escritorio     <b>TCP 3389</b>         SRV-CONTA:3389        <b>Cualquiera</b></pre>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Configuración de SRV-CONTA (Windows Server, sin dominio)</h3></div>
+    <pre class="code">HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+  UserAuthentication = 1        # NLA (autenticación a nivel de red) obligatoria
+
+net accounts
+  Umbral de bloqueo:                 <b>Nunca</b>      # Account lockout threshold = 0
+  Longitud mínima de contraseña:     <b>0</b>
+
+Doble factor en el acceso remoto:    <b>no</b></pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría la gestoría: cerrar ya la regla del router (el 3389 no debe verse desde internet), deshabilitar <code>soporte_tmp</code> tras guardar las pruebas, cambiar la contraseña de <code>contabilidad</code> por una larga y única, revisar qué más hizo el atacante entre las 03:12 y las 03:16 (programas, tareas programadas, otras cuentas) y volver a abrir el acceso solo detrás de una VPN con doble factor y con bloqueo de cuenta a los 10 intentos, lo que recomiendan las bases de seguridad de Windows. Si eres víctima en España, el 017 de INCIBE te ayuda.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, servidor, cuentas, horas e IPs ficticios (IPs de documentación); nada sale de tu navegador. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+// 300 fallos desde 203.0.113.45 entre la 01:02 y las 03:09, con usuarios variados.
+const EXISTEN = ['administrador', 'contabilidad'];
+const PRUEBA = ['admin', 'administrador', 'contabilidad', 'scanner', 'usuario', 'recepcion', 'backup', 'test', 'gestoria', 'admin1'];
+const filas = [
+  ['17/11 22:41:07', '4624', '10', 'marta.r', '192.0.2.18', 'Inicio de sesión correcto'],
+  ['17/11 22:58:40', '4634', '10', 'marta.r', '—', 'Cierre de sesión'],
+];
+for (let i = 0; i < 300; i++) {
+  const s = 3720 + Math.floor(i * 7620 / 299);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0'), mm = String(Math.floor(s / 60) % 60).padStart(2, '0'), ss = String((i * 13) % 60).padStart(2, '0');
+  const u = PRUEBA[(i * 7) % PRUEBA.length];
+  filas.push(['18/11 ' + hh + ':' + mm + ':' + ss, '4625', '3', u, '203.0.113.45', EXISTEN.includes(u) ? 'Fallido · 0xC000006A (contraseña incorrecta)' : 'Fallido · 0xC0000064 (el usuario no existe)']);
+}
+filas.push(
+  ['18/11 03:12:31', '4624', '3', 'contabilidad', '203.0.113.45', 'Inicio de sesión correcto'],
+  ['18/11 03:12:33', '4624', '10', 'contabilidad', '203.0.113.45', 'Inicio de sesión correcto'],
+  ['18/11 03:15:02', '4720', '—', 'contabilidad', '—', 'Se creó la cuenta soporte_tmp'],
+  ['18/11 03:15:09', '4732', '—', 'contabilidad', '—', 'soporte_tmp añadida al grupo Administradores'],
+  ['18/11 03:16:44', '4634', '10', 'contabilidad', '—', 'Cierre de sesión'],
+  ['18/11 08:47:15', '4625', '2', 'marta.r', '127.0.0.1', 'Fallido · 0xC000006A (contraseña incorrecta)'],
+  ['18/11 08:47:29', '4624', '2', 'marta.r', '127.0.0.1', 'Inicio de sesión correcto'],
+);
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Fecha y hora', 'ID', 'Tipo', 'Cuenta', 'IP de origen', 'Qué dice'],
+  rows: filas,
+  cls: r => (r[4] === '203.0.113.45' && r[1] === '4624') || r[1] === '4720' || r[1] === '4732' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('la-301', [
+  {q: '¿Desde qué IP llegan los intentos fallidos de la noche?', type: 'text', ph: 'dirección IP',
+   accept: a => n(a) === '203.0.113.45',
+   hint: 'Busca «4625» en la evidencia 1 y mira la columna «IP de origen».',
+   explain: '<b>203.0.113.45</b>, siempre la misma, de madrugada y con usuarios que cambian. Es el patrón de un programa de fuerza bruta (MITRE ATT&amp;CK T1110.001, adivinar contraseñas) contra un servicio remoto expuesto (T1133).'},
+  {q: '¿Cuántos inicios de sesión fallidos (4625) hay desde esa IP?', type: 'text', ph: 'número',
+   accept: a => n(a) === '300',
+   hint: 'Escribe la IP en el buscador y mira el contador de filas; luego resta las que no son 4625.',
+   explain: '<b>300</b> en poco más de dos horas. Microsoft, con datos de Defender, contó que en los ataques de fuerza bruta por RDP la mediana pasa de 60 intentos al día y que duran 2–3 días de media: muchas veces van despacio para no llamar la atención.'},
+  {q: 'Es un ataque al Escritorio remoto, pero los fallos salen con tipo 3 (red) y no con tipo 10. ¿Por qué?', type: 'choice',
+   options: ['Porque el atacante no usa RDP, sino carpetas compartidas', 'Porque con NLA activado la contraseña se comprueba antes de abrir la sesión de escritorio, así que el fallo se registra como inicio de red', 'Porque Windows se equivoca y hay que ignorar el tipo'], correct: 1,
+   wrong: '✗ Mira la evidencia 3: UserAuthentication = 1.',
+   explain: '<b>Por NLA.</b> Microsoft: NLA «requiere las credenciales antes de establecer la sesión RDP». Si la clave falla, la sesión de escritorio (tipo 10) no llega a existir y el fallo suele apuntarse como tipo 3. Por eso, para cazar fuerza bruta por RDP, los 4625 se miran con tipo 3 <i>y</i> 10, y se cruzan con la IP y el puerto expuesto.'},
+  {q: 'Dos usuarios dan «contraseña incorrecta» y el resto «el usuario no existe». Escribe uno de los que existen en el servidor.', type: 'text', ph: 'cuenta',
+   accept: a => ['administrador', 'contabilidad'].includes(n(a)),
+   hint: 'Busca «0xC000006A».',
+   explain: '<b>administrador</b> y <b>contabilidad</b>. El código de estado separa las dos cosas: <code>0xC0000064</code> = el usuario no existe; <code>0xC000006A</code> = existe, pero la contraseña es incorrecta.'},
+  {q: '¿Qué cuenta cayó?', type: 'text', ph: 'cuenta',
+   accept: a => n(a) === 'contabilidad',
+   hint: 'Busca un 4624 con la IP del atacante.',
+   explain: '<b>contabilidad</b>. Un inicio correcto justo después de cientos de fallos desde una IP sospechosa es la señal de compromiso que usa Microsoft para detectar estos ataques.'},
+  {q: '¿A qué hora entró por Escritorio remoto (4624 tipo 10)? (hh:mm)', type: 'text', ph: 'hh:mm',
+   accept: a => ['03:12', '3:12', '03:12:33'].includes(n(a)),
+   hint: 'Busca «4624» y mira la columna «Tipo».',
+   explain: '<b>03:12</b>. Con NLA aparece primero un 4624 tipo 3 (la comprobación de red) y dos segundos después el 4624 tipo 10: ya tiene el escritorio delante.'},
+  {q: '¿Cómo se llama la cuenta que creó el atacante?', type: 'text', ph: 'cuenta',
+   accept: a => ['soporte_tmp', 'soportetmp'].includes(n(a)),
+   hint: 'Busca «4720».',
+   explain: '<b>soporte_tmp</b>, creada tres minutos después de entrar: un nombre de técnico para pasar desapercibido. Es persistencia (T1136.001): aunque cambies la contraseña de contabilidad, él sigue teniendo su propia puerta.'},
+  {q: '¿Qué ID de evento demuestra que esa cuenta es administradora?', type: 'text', ph: 'número',
+   accept: a => n(a) === '4732',
+   hint: 'Busca «Administradores».',
+   explain: '<b>4732</b>, «se agregó un miembro a un grupo local con seguridad habilitada», aquí Administradores. Un 4720 seguido de un 4732 de madrugada, desde una sesión remota recién abierta, merece una alerta crítica.'},
+  {q: 'Viendo las evidencias 2 y 3, ¿qué combinación lo habría evitado?', type: 'choice',
+   options: ['Cambiar el puerto 3389 por otro y listo', 'No exponer el 3389 a internet (acceso por VPN), doble factor y bloqueo de cuenta a los 10 intentos, con contraseñas largas', 'Desactivar NLA para ver los fallos como tipo 10'], correct: 1,
+   wrong: '✗ Mira «Origen permitido», el umbral de bloqueo y el doble factor.',
+   explain: '<b>Las tres juntas.</b> El router dejaba entrar a cualquiera, el umbral de bloqueo estaba en «Nunca» (es el valor por defecto en un servidor independiente) y no había doble factor. Las bases de seguridad de Windows recomiendan bloquear a los 10 intentos: la 301 nunca habría llegado. Cambiar el puerto solo retrasa a los escáneres, y desactivar NLA empeora la seguridad.'},
+], 'N4{la_301_no_habria_entrado}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
