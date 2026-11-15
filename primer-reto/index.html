@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tu primer reto SOC · Labs N4zar1</title>
+<meta name="description" content="Tu primer reto de analista SOC: seis registros de inicio de sesión y procesos de una empresa ficticia, y uno es un intruso. Cruza la hora, el usuario, la IP y el proceso padre para encontrarlo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>Tu primer reto SOC</h1>
+  <p class="lede">Fácil · ~8 min · Basado en el vídeo «Uno de estos seis registros es un intruso. Tienes diez segundos».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Talleres Norte, una empresa ficticia. El SIEM junta, para cada inicio de sesión en el servidor de archivos <code>SRV-ARCHIVOS</code>, el evento <code>4624</code> (inicio de sesión correcto: hora, cuenta e IP de origen) y el evento <code>1</code> de Sysmon del equipo de origen (qué programa abrió la conexión y quién lo abrió: el <i>proceso padre</i>). Son los seis registros del vídeo. Uno es un intruso.</p>
+    <p><b>Tu misión:</b> encuéntralo y explica por qué los otros cinco son normales. El método del analista: no busques «lo raro» en una columna; compara cada fila con lo normal de esa persona y de ese equipo, y cruza las columnas.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Los seis registros · SRV-ARCHIVOS · 20/11</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (hora, usuario, IP, proceso…)" aria-label="Buscar en los registros"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Inventario de equipos (CMDB)</h3><span class="tools"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Lo normal: tareas programadas y horarios</h3></div>
+    <pre class="code">SRV-COPIAS   Tarea «Copia nocturna»   cada día 03:00   cuenta svc_copias   services.exe → copias.exe
+Horario de oficina: 08:00–15:00 (L–V)
+soporte.ana  Técnica de sistemas: usa PowerShell a diario desde su equipo para administrar</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Detalle del registro 4</h3></div>
+    <pre class="code">Security 4624 · SRV-ARCHIVOS · 20/11 09:11:42
+  Account Name:            laura.vidal
+  Logon Type:              3  (red)
+  Source Network Address:  <b>10.0.0.34</b>
+
+Sysmon 1 · PC-CONTA-03 · 20/11 09:11:40
+  ParentImage:  C:\Program Files\Microsoft Office\root\Office16\<b>EXCEL.EXE</b>
+  Image:        C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+  CommandLine:  powershell.exe -nop -w hidden -enc SQBFAFgAIAAo…   (recortado)
+  ParentCommandLine: "EXCEL.EXE" "C:\Users\pablo.ruiz\Downloads\Pedido_1187.xlsm"</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p><b>La solución, entera.</b> El intruso es el <b>registro 4</b>. Ninguna columna sola lo delata: las 09:11 es horario de oficina, <code>laura.vidal</code> es una usuaria real y PowerShell es una herramienta legítima. Lo delata el cruce. (1) <b>IP:</b> Laura trabaja en <code>PC-RECEP-01</code> (10.0.0.21) y a las 08:47 y a las 09:15 entra desde ahí; a las 09:11 «entra» desde <code>10.0.0.34</code>, que es <code>PC-CONTA-03</code>, el equipo de Pablo. No puede estar en dos sitios a la vez. (2) <b>Proceso padre:</b> en ese equipo, <code>EXCEL.EXE</code> abre <code>powershell.exe</code> oculto (<code>-w hidden</code>) con una orden codificada (<code>-enc</code>). Excel no tiene por qué abrir PowerShell: es la señal típica de una macro maliciosa (aquí <code>Pedido_1187.xlsm</code>, descargado por Pablo), y existe una regla Sigma pública para ello («Suspicious Microsoft Office Child Process»). La macro usó la contraseña de Laura, robada antes, para conectarse al servidor de archivos.</p>
+    <p><b>Los despistes.</b> El 1 es a las 03:00, pero es la copia de seguridad: la misma tarea, la misma cuenta de servicio y el mismo servidor todas las noches. El 6 es PowerShell, pero lo abre <code>explorer.exe</code> (una persona) en el equipo de la técnica de sistemas, que lo usa a diario. El 5 es Outlook abriendo Chrome: alguien pulsó un enlace de un correo, algo normal.</p>
+    <p><b>Lo que haría el analista:</b> aislar <code>PC-CONTA-03</code> de la red, guardar las pruebas, restablecer la contraseña de <code>laura.vidal</code> y cerrar sus sesiones, revisar qué leyó en <code>SRV-ARCHIVOS</code> y bloquear la regla ASR de Defender que impide a Office crear procesos hijos.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, equipos, cuentas, horas e IPs ficticios; nada sale de tu navegador. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['#', 'Hora', 'Usuario', 'IP de origen', 'Padre → proceso'],
+  rows: [
+    ['1', '03:00', 'svc_copias', '10.0.0.5', 'services.exe → copias.exe'],
+    ['2', '08:47', 'laura.vidal', '10.0.0.21', 'explorer.exe → outlook.exe'],
+    ['3', '09:02', 'pablo.ruiz', '10.0.0.34', 'explorer.exe → excel.exe'],
+    ['4', '09:11', 'laura.vidal', '10.0.0.34', 'excel.exe → powershell.exe'],
+    ['5', '09:15', 'laura.vidal', '10.0.0.21', 'outlook.exe → chrome.exe'],
+    ['6', '09:26', 'soporte.ana', '10.0.0.9', 'explorer.exe → powershell.exe'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+makeTable({
+  el: $('ev2'),
+  cols: ['IP', 'Equipo', 'Usuario habitual', 'Uso'],
+  rows: [
+    ['10.0.0.5', 'SRV-COPIAS', 'svc_copias (servicio)', 'Copias de seguridad'],
+    ['10.0.0.9', 'PC-SOPORTE', 'soporte.ana', 'Sistemas'],
+    ['10.0.0.21', 'PC-RECEP-01', 'laura.vidal', 'Recepción'],
+    ['10.0.0.34', 'PC-CONTA-03', 'pablo.ruiz', 'Contabilidad'],
+  ],
+  filters: [],
+});
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('primer-reto', [
+  {q: '¿Qué registro es el intruso? (número del 1 al 6)', type: 'text', ph: 'número',
+   accept: a => ['4', 'el4', 'registro4', 'cuatro'].includes(n(a)),
+   hint: 'Mira las tres filas de laura.vidal: ¿desde qué IP entra cada vez?',
+   explain: '<b>El 4.</b> Es el único en el que fallan dos cosas a la vez: la IP no es la de su usuaria y el proceso padre no debería abrir PowerShell. Ahora vamos a demostrarlo columna a columna.'},
+  {q: 'Laura entra a las 08:47 y a las 09:15 desde 10.0.0.21. ¿De qué equipo es la IP 10.0.0.34 del registro 4?', type: 'text', ph: 'nombre del equipo',
+   accept: a => ['pc-conta-03', 'pcconta03', 'pc-conta03'].includes(n(a)) || n(a).includes('pablo'),
+   hint: 'Busca la IP en el inventario (evidencia 2).',
+   explain: '<b>PC-CONTA-03</b>, el equipo de Pablo. La cuenta de Laura se usa desde un equipo que no es el suyo, entre dos accesos desde su propio PC: no puede estar en dos sitios a la vez. Cuenta legítima usada por otro = credenciales robadas (MITRE ATT&amp;CK T1078, Valid Accounts).'},
+  {q: '¿Qué proceso padre abre PowerShell en el registro 4?', type: 'text', ph: 'proceso',
+   accept: a => ['excel.exe', 'excel'].includes(n(a)),
+   hint: 'Columna «Padre → proceso», o la evidencia 4 (ParentImage).',
+   explain: '<b>EXCEL.EXE.</b> Excel no tiene por qué abrir PowerShell, y menos oculto (<code>-w hidden</code>) y con la orden codificada (<code>-enc</code>). Es lo que hace una macro maliciosa: aquí, <code>Pedido_1187.xlsm</code>, descargado por Pablo.'},
+  {q: 'El registro 1 es a las 03:00, de madrugada. ¿Por qué es normal?', type: 'choice',
+   options: ['Porque a esa hora nadie mira los registros', 'Porque es la copia de seguridad programada: misma tarea, misma cuenta de servicio y mismo servidor todas las noches', 'Porque las cuentas que empiezan por svc_ nunca pueden ser un ataque'], correct: 1,
+   wrong: '✗ Mira la evidencia 3. Ojo: una cuenta de servicio también se puede robar; lo que la hace normal es que coincide con lo de siempre.',
+   explain: '<b>Una hora rara no basta.</b> Coincide con la tarea «Copia nocturna» (evidencia 3): la misma hora, la misma cuenta, el mismo equipo y el mismo programa cada noche. Si un día saliera a las 03:00 desde el portátil de alguien, entonces sí.'},
+  {q: 'El registro 6 también es PowerShell. ¿Por qué no es el intruso?', type: 'choice',
+   options: ['Porque lo abre una persona (explorer.exe) en el equipo de la técnica de sistemas, que lo usa cada día', 'Porque PowerShell nunca es peligroso', 'Porque es el último registro'], correct: 0,
+   wrong: '✗ PowerShell puede ser peligroso; la pregunta es quién lo abrió y desde dónde.',
+   explain: '<b>PowerShell no es malo: importa quién lo abrió.</b> En el 6 el padre es <code>explorer.exe</code> (alguien hizo clic), en <code>PC-SOPORTE</code>, con la cuenta de quien administra los equipos. Encaja con lo normal de esa persona.'},
+  {q: '¿Qué ID de evento del registro de Seguridad de Windows da la hora, la cuenta y la IP de un inicio de sesión correcto?', type: 'text', ph: 'número',
+   accept: a => n(a) === '4624',
+   hint: 'Evidencia 4, primera línea.',
+   explain: '<b>4624</b>, «An account was successfully logged on». Sus campos Account Name y Source Network Address son las columnas USUARIO e IP del reto; el Logon Type 3 indica un acceso por red (por ejemplo, a una carpeta compartida).'},
+  {q: '¿Qué evento de Sysmon da el proceso padre (ParentImage)?', type: 'text', ph: 'número',
+   accept: a => ['1', 'evento1', 'eventid1'].includes(n(a)),
+   hint: 'Evidencia 4, segunda parte.',
+   explain: '<b>Sysmon 1</b> (Process Create): Image, CommandLine, ParentImage y ParentCommandLine. Sin Sysmon, el evento 4688 del registro de Seguridad da el «Creator Process Name». La regla Sigma pública «Suspicious Microsoft Office Child Process» salta justo con esta pareja Office → PowerShell.'},
+  {q: '¿Qué haces primero?', type: 'choice',
+   options: ['Borrar el Excel y seguir trabajando', 'Aislar PC-CONTA-03, guardar pruebas, restablecer la contraseña de laura.vidal y cerrar sus sesiones', 'Apagar SRV-COPIAS por si acaso'], correct: 1,
+   wrong: '✗ El ataque sigue vivo en un equipo y con una contraseña robada: hay que cortar las dos cosas.',
+   explain: '<b>Contener primero.</b> Se aísla el equipo infectado (sin apagarlo, para no perder pruebas), se cambia la contraseña robada y se cierran sus sesiones. Después: qué leyó en SRV-ARCHIVOS y la regla ASR de Defender que impide a Office crear procesos hijos.'},
+], 'N4{cruza_las_columnas}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
