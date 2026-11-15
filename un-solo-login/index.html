@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un solo login · Labs N4zar1</title>
+<meta name="description" content="Reto de analista SOC: alguien vende la base de clientes de una librería ficticia en un foro. Cruza el registro de inicios de sesión del foro con los de la empresa (IP, hora y navegador) y descubre quién está detrás.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>Un solo login</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Una de estas líneas llevó al FBI hasta la casa de un hacker».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Librería Lince, una empresa ficticia. El 05/11 aparece en un foro de datos robados un anuncio: «Librería Lince · 48.210 clientes», publicado por el usuario <code>sombra_77</code>. La policía ha intervenido el foro y te pasa su registro de inicios de sesión. Tú tienes los inicios de sesión de Microsoft 365 de la librería y su registro de auditoría.</p>
+    <p><b>Tu misión:</b> como en el caso real de BreachForums, el vendedor se escondía tras VPN o Tor… casi siempre. Encuentra la línea que no encaja y crúzala con los registros de la empresa: IP, hora y navegador. Usa los buscadores: hay muchas filas que no quieres leer una a una.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Foro intervenido · tabla de inicios de sesión (01/10 → 05/11)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (usuario, IP, origen…)" aria-label="Buscar en los inicios de sesión del foro"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Librería Lince · inicios de sesión de Microsoft 365 (SigninLogs)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (usuario, IP, navegador…)" aria-label="Buscar en los inicios de sesión de la empresa"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Librería Lince · registro de auditoría del gestor de clientes</h3></div>
+    <pre class="code">Fecha y hora      Usuario     IP              Acción
+01/11 10:12:40    lucia.m     192.0.2.10      Consultó la ficha de 1 cliente
+02/11 12:03:15    pablo.s     192.0.2.10      Exportó pedidos_octubre.csv (312 filas)
+<b>02/11 23:41:07    jorge.v     203.0.113.45    Exportó clientes_completo.csv (48.210 filas)</b>
+03/11 09:30:22    lucia.m     192.0.2.10      Consultó la ficha de 3 clientes</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría la librería: guardar las pruebas (los registros originales, con su fecha), deshabilitar la cuenta <code>jorge.v</code> y cerrar sus sesiones, avisar a su delegado de protección de datos (una fuga de datos personales se notifica a la AEPD en 72 horas) y a los clientes afectados, y denunciar. Para la próxima: alerta por exportaciones masivas fuera de horario, alerta por inicios de sesión desde IP nuevas y que exportar toda la base de clientes pida aprobación. Si eres víctima en España, el 017 de INCIBE te ayuda.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, foro, personas, cuentas, horas e IPs ficticios (IPs de documentación); nada sale de tu navegador. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const dd = n => String(n).padStart(2, '0');
+
+// Foro: sombra_77 entra 23 veces por VPN o Tor y una vez (03/11 23:47) desde 203.0.113.45; otros usuarios, ruido.
+const VPN = ['198.51.100.23', '198.51.100.80', '198.51.100.141', '198.51.100.9', '198.51.100.77', '198.51.100.215'];
+const TOR = ['198.51.100.164', '198.51.100.6', '198.51.100.201'];
+const OTROS = ['n0vak', 'dataking', 'r3sell', 'mrbin', 'zeta_db', 'leakfox'];
+const foro = [];
+for (let i = 0; i < 24; i++) {
+  if (i === 20) { foro.push(['03/11 23:47:12', 'sombra_77', '203.0.113.45', 'Proveedor doméstico', 'Firefox 128 · Linux']); continue; }
+  const dia = 1 + Math.floor(i * 34 / 24), mes = dia > 31 ? 11 : 10, d = dia > 31 ? dia - 31 : dia;
+  const tor = i % 3 === 1;
+  foro.push([dd(d) + '/' + mes + ' ' + dd(20 + (i % 4)) + ':' + dd((i * 17) % 60) + ':' + dd((i * 29) % 60), 'sombra_77',
+    tor ? TOR[i % TOR.length] : VPN[i % VPN.length], tor ? 'Nodo de salida de Tor' : 'Proveedor de VPN', tor ? 'Tor Browser' : 'Firefox 128 · Linux']);
+}
+for (let i = 0; i < 40; i++) {
+  const dia = 1 + Math.floor(i * 35 / 40), mes = dia > 31 ? 11 : 10, d = dia > 31 ? dia - 31 : dia;
+  foro.push([dd(d) + '/' + mes + ' ' + dd((i * 5) % 24) + ':' + dd((i * 23) % 60) + ':' + dd((i * 41) % 60), OTROS[i % OTROS.length],
+    i % 2 ? TOR[(i + 1) % TOR.length] : VPN[(i + 2) % VPN.length], i % 2 ? 'Nodo de salida de Tor' : 'Proveedor de VPN', i % 2 ? 'Tor Browser' : 'Chrome 130 · Windows']);
+}
+const orden = r => { const [f, h] = r[0].split(' '); const [d, m] = f.split('/'); return m + d + h; };
+foro.sort((a, b) => orden(a) < orden(b) ? -1 : 1);
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Fecha y hora', 'Usuario', 'IP', 'Origen de la IP', 'Navegador (user-agent)'],
+  rows: foro,
+  cls: r => r[2] === '203.0.113.45' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+// Empresa: oficina 192.0.2.10; cada uno desde su casa a veces; jorge.v desde 203.0.113.45 con Firefox · Linux.
+const emp = [];
+const GENTE = [['lucia.m', '203.0.113.80', 'Chrome 130 · Windows'], ['pablo.s', '203.0.113.120', 'Edge 130 · Windows'], ['marta.r', '203.0.113.9', 'Safari · iPhone'], ['jorge.v', '203.0.113.45', 'Firefox 128 · Linux']];
+for (let d = 28; d <= 35; d++) {
+  const dia = d > 31 ? d - 31 : d, mes = d > 31 ? 11 : 10;
+  GENTE.forEach(([u, casa, ua], k) => {
+    emp.push([dd(dia) + '/' + mes + ' ' + dd(8 + k) + ':' + dd((d * 7 + k * 13) % 60), u + '@librerialince.example', '192.0.2.10', 'Oficina', u === 'jorge.v' ? 'Chrome 130 · Windows' : ua.replace('Safari · iPhone', 'Chrome 130 · Windows'), 'Correcto']);
+    if ((d + k) % 3 === 0 || u === 'jorge.v' && (dia === 2 || dia === 3)) {
+      emp.push([dd(dia) + '/' + mes + ' ' + dd(21 + (k % 2)) + ':' + dd((d * 11 + k * 7) % 60), u + '@librerialince.example', casa, 'Casa (teletrabajo)', ua, 'Correcto']);
+    }
+  });
+}
+emp.push(['02/11 23:39', 'jorge.v@librerialince.example', '203.0.113.45', 'Casa (teletrabajo)', 'Firefox 128 · Linux', 'Correcto']);
+emp.sort((a, b) => orden(a) < orden(b) ? -1 : 1);
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Fecha y hora', 'Usuario', 'IP', 'Ubicación', 'Navegador (user-agent)', 'Resultado'],
+  rows: emp,
+  cls: () => '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('un-solo-login', [
+  {q: '¿Cuántas veces entró sombra_77 en el foro sin VPN ni Tor?', type: 'text', ph: 'número',
+   accept: a => ['1', 'una', 'unasola', 'unavez'].includes(n(a)),
+   hint: 'Escribe «sombra_77» en el buscador de la evidencia 1 y mira la columna «Origen de la IP».',
+   explain: '<b>Una.</b> De sus 24 inicios de sesión, 23 llegan desde un proveedor de VPN o un nodo de Tor. Uno solo llega desde un proveedor doméstico: es la línea que no encaja. Es lo mismo que destacó el FBI en el caso de BreachForums: el acceso era «normalmente» por VPN o Tor y «una vez» desde una IP de casa.'},
+  {q: '¿Desde qué IP fue ese inicio de sesión?', type: 'text', ph: 'dirección IP',
+   accept: a => n(a) === '203.0.113.45',
+   hint: 'Es la fila resaltada de la evidencia 1.',
+   explain: '<b>203.0.113.45.</b> Una VPN cambia la IP que ve el foro; si un día no se conecta (o falla), el foro guarda la IP real de la conexión.'},
+  {q: '¿Qué día fue? (dd/mm)', type: 'text', ph: 'dd/mm',
+   accept: a => ['03/11', '3/11', '03/11/2026', '3/11/2026'].includes(n(a)),
+   hint: 'Mira la columna «Fecha y hora» de esa fila.',
+   explain: '<b>03/11</b> a las 23:47. Apúntalo: la hora también sirve para cruzar con otros registros.'},
+  {q: 'Ahora cruza esa IP con la evidencia 2. ¿Qué empleado de la librería entra desde ella?', type: 'text', ph: 'usuario',
+   accept: a => ['jorge.v', 'jorgev', 'jorge.v@librerialince.example', 'jorge'].includes(n(a)),
+   hint: 'Escribe la IP en el buscador de la evidencia 2.',
+   explain: '<b>jorge.v</b>, que teletrabaja desde esa IP. Es la consulta que haría un analista en Sentinel: <code>SigninLogs | where IPAddress == "203.0.113.45" | distinct UserPrincipalName</code>.'},
+  {q: '¿Qué navegador (user-agent) comparten sombra_77 cuando usa VPN y jorge.v desde casa?', type: 'choice',
+   options: ['Chrome 130 · Windows', 'Firefox 128 · Linux', 'Safari · iPhone', 'Tor Browser'], correct: 1,
+   wrong: '✗ Compara la columna «Navegador» de las dos evidencias.',
+   explain: '<b>Firefox 128 · Linux.</b> Por sí solo no prueba nada (mucha gente lo usa), pero suma: misma IP, mismo navegador y horas de noche que encajan. Así se construye una investigación: varias pistas independientes que apuntan al mismo sitio.'},
+  {q: '¿Cuántas filas tenía el archivo que exportó jorge.v la noche del 02/11?', type: 'text', ph: 'número',
+   accept: a => ['48210', '48.210'].includes(n(a).replace(/\./g, '')) || n(a).replace(/\./g, '') === '48210',
+   hint: 'Evidencia 3.',
+   explain: '<b>48.210</b>, exactamente los «48.210 clientes» del anuncio del foro, exportados a las 23:41 desde su casa, dos minutos después de iniciar sesión. Tres días después, el anuncio.'},
+  {q: '¿Basta con que la IP coincida para acusar a jorge.v?', type: 'choice',
+   options: ['Sí: una IP es una persona', 'No: es una pista fuerte, pero una IP de casa puede compartirla toda la familia o un piso compartido, y algunas operadoras comparten IP entre clientes (CGNAT); hay que corroborarla con más pruebas', 'No sirve para nada, porque se puede falsificar'], correct: 1,
+   wrong: '✗ Piensa en quién más puede salir a internet por la misma IP.',
+   explain: '<b>Es una pista, no una prueba completa.</b> Por eso el analista suma la hora, el navegador y la exportación de 48.210 filas, y lo deja documentado para quien tenga que decidir (la empresa, la policía, un juez). En el caso real, el FBI también sumó registros de la operadora, de Apple, del GPS del móvil y vigilancia.'},
+  {q: '¿Qué alerta habría cortado la fuga antes del anuncio?', type: 'choice',
+   options: ['Una alerta por exportaciones masivas del gestor de clientes, sobre todo de noche y desde fuera de la oficina', 'Ninguna: si tenía permiso, no se puede ver', 'Bloquear Firefox en la empresa'], correct: 0,
+   wrong: '✗ Mira qué hizo jorge.v el 02/11 a las 23:41 y si es normal en esa empresa.',
+   explain: '<b>La exportación masiva.</b> Nadie en la librería exporta 48.210 clientes; lo normal son cientos de filas en horario de oficina. Una regla que avise de exportaciones grandes fuera de horario (y que exportar toda la base pida aprobación) habría dado tres días de margen.'},
+], 'N4{una_sola_linea_basta}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
