@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El login sin clave · Labs N4zar1</title>
+<meta name="description" content="Reto de inyección SQL: alguien entró como administrador en el login de una tienda online sin saber la contraseña. Lee los registros como un analista SOC: la IP, lo que escribió, la herramienta, por qué el WAF no lo paró y el arreglo que lo cierra.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El login sin clave</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «No sabía su contraseña. Escribí esto… y entré como administrador (inyección SQL)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Tienda Sol, una tienda online ficticia (tienda-sol.example). Lunes 16/11. A las 10:50 alguien cambia los precios de toda la tienda a 0,01 € desde el panel de administración, y nadie del equipo ha sido. Te pasan el registro de accesos del servidor web, el registro del WAF y el código del login.</p>
+    <p><b>Tu misión:</b> averigua quién entró como <code>admin</code>, qué escribió para hacerlo sin la contraseña, con qué herramienta siguió, por qué el WAF no lo paró y qué arreglo lo cierra. Chuleta: en una URL o un formulario, <code>%27</code> es una comilla <code>'</code>, <code>%3D</code> es <code>=</code> y <code>+</code> es un espacio. En SQL, <code>--</code> convierte en comentario todo lo que va detrás. Ojo: no toda comilla es un ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · access.log del servidor web · 16/11 (la app apunta el campo «usuario» de cada intento)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, usuario, código…)" aria-label="Buscar en el registro de accesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · WAF (ModSecurity + OWASP CRS) · registro del 16/11</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (IP, regla…)" aria-label="Buscar en el registro del WAF"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · La web por dentro: el login y la configuración del WAF</h3></div>
+    <pre class="code">// login.php (PHP 8)
+$u = $_POST['usuario'];
+$c = hash('sha256', $_POST['clave']);
+<b>$sql = "SELECT id, rol FROM usuarios WHERE usuario = '$u' AND clave = '$c'";</b>
+$fila = $db-&gt;query($sql)-&gt;fetch();
+if ($fila) { $_SESSION['rol'] = $fila['rol']; header('Location: /admin'); }   // 302
+else { http_response_code(401); }
+
+# modsecurity.conf
+<b>SecRuleEngine DetectionOnly</b>   # puesto el 02/11 «para probar sin romper nada»</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Tienda Sol: cambiar el login (y todas las consultas de la web) a consultas parametrizadas, <code>WHERE usuario = ? AND clave = ?</code>, para que lo que se escribe sea siempre texto (OWASP SQL Injection Prevention Cheat Sheet); volver a poner el WAF en <code>SecRuleEngine On</code>; cerrar las sesiones del panel, cambiar las contraseñas y restaurar los precios; bloquear <code>203.0.113.45</code> y revisar qué sacaron las consultas UNION, porque puede haber una filtración de datos de clientes que habría que notificar. Y nada de esto se prueba fuera de sistemas propios o sin permiso.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, dominios, IPs y contraseñas ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Petición', 'Usuario (campo del formulario)', 'Código', 'User-Agent'],
+  rows: [
+    ['10:31:12', '198.51.100.20', 'POST /login', 'lucia', '302', 'Mozilla/5.0 (iPhone)'],
+    ['10:33:40', '192.0.2.88', 'POST /login', 'marcos', '401', 'Mozilla/5.0 (Windows NT 10.0)'],
+    ['10:33:52', '192.0.2.88', 'POST /login', 'marcos', '302', 'Mozilla/5.0 (Windows NT 10.0)'],
+    ['10:38:05', '198.51.100.31', 'POST /login', "o'connor", '500', 'Mozilla/5.0 (Android 14)'],
+    ['10:41:20', '203.0.113.45', 'POST /login', 'admin', '401', 'Mozilla/5.0 (X11; Linux x86_64)'],
+    ['10:41:47', '203.0.113.45', 'POST /login', "admin'", '500', 'Mozilla/5.0 (X11; Linux x86_64)'],
+    ['10:42:31', '203.0.113.45', 'POST /login', "admin' OR 1=1 --", '302', 'Mozilla/5.0 (X11; Linux x86_64)'],
+    ['10:42:32', '203.0.113.45', 'GET /admin', '-', '200', 'Mozilla/5.0 (X11; Linux x86_64)'],
+    ['10:44:02', '203.0.113.45', 'POST /login', "admin' AND 1=2 --", '401', 'sqlmap/1.8.11#stable (https://sqlmap.org)'],
+    ['10:44:02', '203.0.113.45', 'POST /login', "admin' ORDER BY 3 --", '500', 'sqlmap/1.8.11#stable (https://sqlmap.org)'],
+    ['10:44:03', '203.0.113.45', 'POST /login', "' UNION SELECT NULL,NULL --", '302', 'sqlmap/1.8.11#stable (https://sqlmap.org)'],
+    ['10:44:03', '203.0.113.45', 'POST /login', "' UNION SELECT usuario,clave FROM usuarios --", '302', 'sqlmap/1.8.11#stable (https://sqlmap.org)'],
+    ['10:44:04', '203.0.113.45', 'POST /login', "' UNION SELECT email,telefono FROM clientes --", '302', 'sqlmap/1.8.11#stable (https://sqlmap.org)'],
+    ['10:50:15', '203.0.113.45', 'POST /admin/precios', '-', '200', 'Mozilla/5.0 (X11; Linux x86_64)'],
+    ['10:55:41', '198.51.100.20', 'GET /carrito', '-', '200', 'Mozilla/5.0 (iPhone)'],
+  ],
+  cls: r => r[4] === '500' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'IP', 'Regla', 'Mensaje', 'Acción'],
+  rows: [
+    ['10:38:05', '198.51.100.31', '-', '-', 'pass'],
+    ['10:41:47', '203.0.113.45', '942100', 'SQL Injection Attack Detected via libinjection', 'detectado (solo aviso)'],
+    ['10:42:31', '203.0.113.45', '942130', 'SQL Injection Attack: SQL Boolean-based attack detected', 'detectado (solo aviso)'],
+    ['10:44:02', '203.0.113.45', '913100', 'Found User-Agent associated with security scanner', 'detectado (solo aviso)'],
+    ['10:44:03', '203.0.113.45', '942100', 'SQL Injection Attack Detected via libinjection', 'detectado (solo aviso)'],
+  ],
+  cls: r => r[2] !== '-' ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+runLab('login-sin-clave', [
+  {q: '¿Desde qué IP entraron como admin sin la contraseña?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.45',
+   hint: 'Busca en la evidencia 1 el inicio de sesión que acaba en 302 y luego entra en /admin.',
+   explain: '<b>203.0.113.45.</b> A las 10:42:31 su intento devuelve <code>302</code> (la web le redirige al panel) y un segundo después hace <code>GET /admin</code> con un <code>200</code>.'},
+  {q: '¿Qué escribió en el campo «usuario» para entrar?', type: 'choice',
+   options: ["admin", "admin'", "admin' OR 1=1 --", "' UNION SELECT NULL,NULL --"], correct: 2,
+   wrong: '✗ Mira cuál de sus intentos es el primero que recibe un 302.',
+   explain: "<b>admin' OR 1=1 --</b>. La comilla cierra el texto del usuario, <code>OR 1=1</code> siempre es verdad y <code>--</code> convierte en comentario el resto: <code>AND clave = '…'</code> ni se mira. La consulta devuelve una fila y el login le deja pasar."},
+  {q: 'Justo antes, su intento con <code>admin\'</code> devolvió un código distinto de 401. ¿Cuál?', type: 'text', ph: 'código HTTP',
+   accept: a => norm(a).replace(/\s/g, '') === '500',
+   hint: 'Evidencia 1, 10:41:47.',
+   explain: '<b>500.</b> Una comilla suelta deja la consulta SQL mal cerrada, la base de datos da un error de sintaxis y la web falla. Para un atacante es la señal de que el campo va directo a la consulta; para un analista, una ráfaga de 500 en el login es una alarma.'},
+  {q: 'A las 10:38 alguien desde <code>198.51.100.31</code> también provocó un 500 con una comilla («o\'connor»). ¿Es un ataque?', type: 'choice',
+   options: ['Sí: cualquier comilla en el usuario es un ataque', 'No: es un apellido con apóstrofo y el WAF no avisó. Pero demuestra el mismo fallo: la web mete lo que escribes dentro de la consulta', 'No, porque usa Android'], correct: 1,
+   explain: '<b>Es un cliente legítimo.</b> Apellidos como O\'Connor o D\'Angelo llevan comilla. No hay más intentos, ni OR, ni UNION, ni herramienta. Pero que un nombre real rompa el login es justo el síntoma de la inyección SQL: con consultas parametrizadas ese cliente habría entrado sin problema.'},
+  {q: '¿Con qué herramienta siguió a las 10:44? (mira el User-Agent)', type: 'text', ph: 'herramienta',
+   accept: a => norm(a).replace(/\s/g, '').startsWith('sqlmap'),
+   hint: 'Evidencia 1: la columna User-Agent cambia en las peticiones de las 10:44.',
+   explain: '<b>sqlmap</b>, que automatiza la inyección SQL. Por defecto se presenta como <code>sqlmap/1.x (https://sqlmap.org)</code>; con <code>--random-agent</code> se disfraza de navegador, así que no hay que fiarse solo del User-Agent: la ráfaga de peticiones en el mismo segundo también lo delata.'},
+  {q: '¿Qué palabra de SQL usó en esas peticiones para pegar a la respuesta datos de otras tablas?', type: 'text', ph: 'palabra',
+   accept: a => norm(a).replace(/\s/g, '').toUpperCase() === 'UNION',
+   hint: 'Aparece en las tres últimas peticiones de sqlmap.',
+   explain: '<b>UNION.</b> <code>UNION SELECT</code> añade el resultado de otra consulta a la del login. Ahí pidió <code>usuario,clave FROM usuarios</code> y <code>email,telefono FROM clientes</code>: además de entrar, puede haberse llevado datos de clientes. Hay que averiguarlo y, si es así, notificarlo.'},
+  {q: 'El WAF detectó todo (942100, 942130, 913100). ¿Por qué no lo paró?', type: 'choice',
+   options: ['Porque el atacante usó una VPN', 'Porque estaba en modo «solo detección» (SecRuleEngine DetectionOnly): apunta las alertas pero deja pasar las peticiones', 'Porque las reglas de OWASP no detectan la inyección SQL'], correct: 1,
+   wrong: '✗ Mira la columna «Acción» de la evidencia 2 y la configuración de la evidencia 3.',
+   explain: '<b>Estaba en DetectionOnly.</b> Alguien lo dejó así el 02/11 «para probar». Las reglas funcionaron: 942100 (libinjection), 942130 (tautología tipo <code>1=1</code>) y 913100 (User-Agent de escáner). Por eso un analista mira las alertas aunque el WAF no bloquee: estaban ahí desde las 10:41.'},
+  {q: '¿Qué cambio en login.php cierra el agujero de raíz?', type: 'choice',
+   options: ['Prohibir las comillas en el campo usuario', 'Usar una consulta parametrizada: WHERE usuario = ? AND clave = ?, y pasar lo escrito aparte, como texto', 'Cambiar la contraseña del admin'], correct: 1,
+   wrong: '✗ Eso no basta: mira qué línea del código mezcla lo que escribe el usuario con la consulta.',
+   explain: '<b>Consultas parametrizadas.</b> Es la primera defensa de la OWASP SQL Injection Prevention Cheat Sheet: la estructura de la consulta va por un lado y los valores por otro, así que <code>admin\' OR 1=1 --</code> se busca como un nombre de usuario (y no existe). Prohibir comillas rompe a los O\'Connor y se salta; cambiar la contraseña no sirve si nadie la comprueba.'},
+], 'N4{la_comilla_es_solo_texto}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
