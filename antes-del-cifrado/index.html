@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Antes del cifrado · Labs N4zar1</title>
+<meta name="description" content="Reto de analista SOC: un ransomware cifró el PC de contabilidad de una empresa ficticia. Encuentra en Sysmon y en el registro de Seguridad las tres señales que dejó antes (copias de sombra, recuperación y registros borrados) y decide qué hacer.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>Antes del cifrado</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Antes de cifrarlo todo, el ransomware suele hacer estas tres cosas».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Orvia, una empresa ficticia. Jueves por la mañana: en el PC de contabilidad (PC-CONTA-07) todos los archivos terminan en <code>.locked</code> y hay una nota de rescate en el escritorio. Te pasan lo que el equipo envió al SIEM antes de que lo cifrara: la creación de procesos de Sysmon (evento 1), el registro de Seguridad y las alertas de las reglas Sigma.</p>
+    <p><b>Tu misión:</b> encuentra las tres señales que dejó el ransomware antes de cifrar, quién las lanzó, a qué hora podía haberse cortado y qué hay que hacer ahora. Chuleta: las <i>copias de sombra</i> son las versiones anteriores de los archivos que guarda Windows; <code>bcdedit</code> cambia el arranque; <code>wevtutil cl</code> borra un registro de eventos. Ojo: no todo lo que toca las copias de sombra es un ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Sysmon · evento 1 (Process Create) · PC-CONTA-07</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (proceso, comando, usuario…)" aria-label="Buscar en la creación de procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Registro de Seguridad · PC-CONTA-07 (copia en el SIEM)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (ID, cuenta…)" aria-label="Buscar en el registro de Seguridad"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Alertas de reglas Sigma públicas (SigmaHQ) en el SIEM</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (regla, nivel…)" aria-label="Buscar en las alertas"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · La regla que más importa (resumida)</h3></div>
+    <pre class="code">title: Shadow Copies Deletion Using Operating Systems Utilities
+logsource:
+  category: process_creation      # Sysmon 1 o 4688 con línea de comandos
+detection:
+  selection1_img:
+    Image|endswith: [ '\powershell.exe', '\wmic.exe', '\vssadmin.exe', '\diskshadow.exe' ]
+  selection1_cli:
+    CommandLine|contains|all:
+      - <b>'shadow'</b>
+      - <b>'delete'</b>
+level: high</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Orvia: aislar PC-CONTA-07 de la red (cable y wifi) sin apagarlo, avisar al equipo de respuesta, deshabilitar y cambiar la contraseña de <code>conta.adm</code> y buscar en el resto de equipos <code>upd_svc.exe</code> y los mismos comandos; restaurar desde copias fuera de línea, no pagar, y convertir las alertas de las 01:05 en una respuesta automática (aislar el equipo) para que la próxima vez no dé tiempo a cifrar. Si eres víctima en España, el 017 de INCIBE te ayuda.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, equipos y nombres de archivo ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'Usuario', 'Proceso padre', 'CommandLine'],
+  rows: [
+    ['23:00:04', 'NT AUTHORITY\\SYSTEM', 'AgenteCopias.exe', 'vssadmin list shadows'],
+    ['23:00:09', 'NT AUTHORITY\\SYSTEM', 'AgenteCopias.exe', 'wbadmin get versions'],
+    ['00:58:41', 'ORVIA\\conta.adm', 'explorer.exe', 'C:\\Users\\Public\\upd_svc.exe'],
+    ['01:04:55', 'ORVIA\\conta.adm', 'upd_svc.exe', 'whoami /groups'],
+    ['01:05:12', 'ORVIA\\conta.adm', 'upd_svc.exe', 'vssadmin delete shadows /all /quiet'],
+    ['01:05:15', 'ORVIA\\conta.adm', 'upd_svc.exe', 'wmic shadowcopy delete'],
+    ['01:06:02', 'ORVIA\\conta.adm', 'upd_svc.exe', 'bcdedit /set {default} recoveryenabled No'],
+    ['01:06:03', 'ORVIA\\conta.adm', 'upd_svc.exe', 'bcdedit /set {default} bootstatuspolicy ignoreallfailures'],
+    ['01:07:30', 'ORVIA\\conta.adm', 'upd_svc.exe', 'wevtutil cl Security'],
+    ['01:07:31', 'ORVIA\\conta.adm', 'upd_svc.exe', 'wevtutil cl System'],
+    ['01:08:40', 'ORVIA\\conta.adm', 'upd_svc.exe', 'upd_svc.exe -cifrar C:\\ \\\\nas01\\contabilidad'],
+  ],
+  cls: r => r[2] === 'upd_svc.exe' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'ID', 'Qué dice', 'Cuenta'],
+  rows: [
+    ['00:57:10', '4624', 'Inicio de sesión correcto (tipo 10, escritorio remoto) desde 10.20.0.45', 'conta.adm'],
+    ['00:57:10', '4672', 'Privilegios especiales asignados al nuevo inicio de sesión', 'conta.adm'],
+    ['01:07:30', '1102', 'Se borró el registro de auditoría', 'conta.adm'],
+    ['01:07:31', '4688', 'Nuevo proceso: wevtutil.exe', 'conta.adm'],
+  ],
+  cls: r => r[1] === '1102' ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Regla Sigma', 'Nivel', 'Estado'],
+  rows: [
+    ['01:05:12', 'Shadow Copies Deletion Using Operating Systems Utilities', 'high', 'sin revisar'],
+    ['01:05:15', 'Shadow Copies Deletion Using Operating Systems Utilities', 'high', 'sin revisar'],
+    ['01:06:02', 'Boot Configuration Tampering Via Bcdedit.EXE', 'high', 'sin revisar'],
+    ['01:07:30', 'Suspicious Eventlog Clearing or Configuration Change Activity', 'high', 'sin revisar'],
+    ['01:07:30', 'Security Eventlog Cleared (EventID 1102)', 'high', 'sin revisar'],
+  ],
+  filters: [{el: $('q3'), test: q()}],
+});
+
+runLab('antes-del-cifrado', [
+  {q: '¿Qué programa lanzó todos los comandos del ataque?', type: 'text', ph: 'nombre del ejecutable',
+   accept: a => ['upd_svc.exe', 'upd_svc'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Evidencia 1: mira la columna «Proceso padre» de los comandos raros de la 01:05 en adelante.',
+   explain: '<b>upd_svc.exe</b>, en <code>C:\\Users\\Public\\</code>: un nombre que imita un servicio de actualización, en una carpeta donde cualquiera puede escribir. Lo abrió <code>conta.adm</code> a las 00:58 desde el explorador.'},
+  {q: '¿A qué hora empezó a borrar las copias de sombra? (hh:mm:ss)', type: 'text', ph: 'hh:mm:ss',
+   accept: a => norm(a).replace(/\s/g, '') === '01:05:12',
+   hint: 'Busca «shadow» en la evidencia 1.',
+   explain: '<b>01:05:12</b>, con <code>vssadmin delete shadows /all /quiet</code>, y tres segundos después lo remata con <code>wmic shadowcopy delete</code>. Es la técnica T1490 de MITRE ATT&amp;CK (Inhibit System Recovery): sin versiones anteriores, no puedes volver atrás.'},
+  {q: 'A las 23:00 el AgenteCopias.exe también ejecuta vssadmin. ¿Es parte del ataque?', type: 'choice',
+   options: ['Sí: vssadmin siempre es malicioso', 'No: es la herramienta de copias de la empresa y solo lista (list shadows), no borra; la regla Sigma necesita «shadow» y «delete» juntos', 'No sé, habría que apagar el PC para comprobarlo'], correct: 1,
+   wrong: '✗ Compara la línea de comandos con lo que pide la regla de la evidencia 4.',
+   explain: '<b>Es legítimo.</b> Lo lanza SYSTEM desde el agente de copias, a la hora de siempre, y solo consulta. Por eso la regla no salta: pide que la línea de comandos tenga <code>shadow</code> <i>y</i> <code>delete</code>.'},
+  {q: '¿Qué opción de bcdedit apaga la reparación automática de Windows?', type: 'text', ph: 'opción',
+   accept: a => ['recoveryenabled', 'recoveryenabledno', 'recoveryenabled no'].includes(norm(a)) || norm(a).replace(/\s/g, '') === 'recoveryenabledno',
+   hint: 'Evidencia 1, 01:06:02.',
+   explain: '<b>recoveryenabled No</b>. Con <code>bootstatuspolicy ignoreallfailures</code> además evita que Windows entre solo en la recuperación tras un fallo. Lo detecta la regla Sigma «Boot Configuration Tampering Via Bcdedit.EXE».'},
+  {q: '¿Qué ID de evento demuestra que borró el registro de Seguridad?', type: 'text', ph: 'número',
+   accept: a => norm(a).replace(/\s/g, '') === '1102',
+   hint: 'Evidencia 2.',
+   explain: '<b>1102</b>, «Se borró el registro de auditoría». Borrar el registro deja su propia huella, y como el equipo enviaba sus eventos al SIEM, el atacante no pudo borrar la copia de fuera. En el registro de Sistema, el equivalente es el 104.'},
+  {q: '¿Con qué cuenta se hizo todo?', type: 'text', ph: 'cuenta',
+   accept: a => ['conta.adm', 'orvia\\conta.adm', 'orvia/conta.adm'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Columna «Usuario» de la evidencia 1 o «Cuenta» de la 2.',
+   explain: '<b>conta.adm</b>, una cuenta con privilegios (evento 4672) que inició sesión por escritorio remoto a las 00:57 desde otro equipo de la red (10.20.0.45). Hay que deshabilitarla y mirar también ese equipo: el atacante ya estaba dentro.'},
+  {q: 'Las alertas estaban «sin revisar». ¿Cuánto tiempo hubo entre la primera alerta y el comando que empezó a cifrar?', type: 'choice',
+   options: ['Unos 10 segundos', 'Unos 3 minutos y medio (01:05:12 → 01:08:40)', 'Más de una hora'], correct: 1,
+   wrong: '✗ Compara la hora de la primera alerta (evidencia 3) con la última línea de la evidencia 1.',
+   explain: '<b>Unos tres minutos y medio.</b> En este caso inventado; en la realidad varía mucho. Lo importante: las tres señales llegan antes del cifrado, y si la alerta de borrado de copias aísla el equipo sola o alguien la mira a tiempo, el cifrado no llega a empezar.'},
+  {q: 'Ves la alerta de las 01:05 en directo. ¿Qué haces primero?', type: 'choice',
+   options: ['Apagar el PC de golpe', 'Aislar el equipo de la red (cable y wifi) y avisar a respuesta a incidentes', 'Esperar a ver si cifra algo para estar seguro'], correct: 1,
+   wrong: '✗ Piensa en lo primero que recomienda CISA en su guía #StopRansomware.',
+   explain: '<b>Aislarlo.</b> CISA: «determina qué sistemas están afectados y aíslalos de inmediato». Apagarlo borra de la memoria pruebas útiles; esperar deja que cifre también la carpeta compartida <code>\\\\nas01\\contabilidad</code>. Y para recuperar: copias fuera de línea, donde el ransomware no llega.'},
+], 'N4{aisla_antes_del_cifrado}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
