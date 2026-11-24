@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La orden en tu nombre · Labs N4zar1</title>
+<meta name="description" content="Reto de CSRF: a varios clientes de un banco ficticio les cambiaron el correo mientras miraban una web de sorteos y después les robaron la cuenta con «he olvidado mi contraseña». Lee los registros como un analista SOC y encuentra la web trampa, la cadena del robo y el arreglo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La orden en tu nombre</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «No pulsaste nada en tu banco. Pero tu banco recibió una orden tuya (CSRF)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Banco Norte, un banco online ficticio (banco-norte.example). Sábado 28/11. Lucía llama: no puede entrar en su cuenta, su contraseña «ya no vale» y no le ha llegado ningún correo del banco. Jura que no ha cambiado nada y que no ha dado su contraseña a nadie. Esa tarde tenía el banco abierto en una pestaña mientras miraba un sorteo en otra. Te pasan el registro de accesos de la web, el registro de eventos de las cuentas y un trozo del código.</p>
+    <p><b>Tu misión:</b> encuentra desde qué web llegó la orden, qué cambió, cómo se quedaron con la cuenta, a cuántos clientes afectó y qué arreglo lo cierra. Chuleta: <code>Origin</code> y <code>Referer</code> dicen desde qué web salió una petición; si no es banco-norte.example, la orden no la dio el banco.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · access.log de la web · 28/11 (con las cabeceras Origin y Referer)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, usuario, ruta, web…)" aria-label="Buscar en el registro de accesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Eventos de las cuentas · 28/11</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (usuario, evento, IP…)" aria-label="Buscar en los eventos de las cuentas"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · La web por dentro: el cambio de correo y la cookie</h3></div>
+    <pre class="code">// cuenta.php: cambiar el correo de la cuenta
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $u = usuario_de_la_sesion();             // sale de la cookie «sesion»
+<b>    cambiar_correo($u, $_POST['correo']);  // sin token anti-CSRF y sin pedir la contraseña</b>
+<b>    // (no se avisa al correo anterior)</b>
+    header('Location: /cuenta?ok=1');           // 302
+}
+
+// login.php: la cookie de sesión
+<b>setcookie('sesion', $id, ['secure' =&gt; true, 'samesite' =&gt; 'None']);</b>
+// «None para que funcione el widget de pagos de la tienda asociada»</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Banco Norte: exigir un token anti-CSRF secreto y único por sesión en todo lo que cambia algo (OWASP CSRF Prevention Cheat Sheet) y rechazar las peticiones cuyo <code>Origin</code> no sea el suyo; volver a <code>SameSite=Lax</code> (o <code>Strict</code>) en la cookie de sesión y sacar el widget de pagos a otra cookie; pedir la contraseña actual o el 2FA antes de cambiar el correo y avisar al correo anterior con un enlace para deshacerlo (OWASP Authentication Cheat Sheet). Hoy: devolver el correo a los clientes afectados, invalidar los enlaces de restablecimiento y las sesiones abiertas, y crear una alerta en el SIEM para «cambio de correo + restablecimiento en menos de 10 minutos». Y nada de esto se prueba fuera de sistemas propios o sin permiso.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Banco, personas, dominios, IPs y sesiones ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const BANCO = 'https://banco-norte.example';
+const TRAMPA = 'https://sorteo-ya.example';
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Petición', 'Usuario', 'Código', 'Origin', 'Referer'],
+  rows: [
+    ['18:41:05', '192.0.2.15', 'POST /cuenta/correo', 'jorge', '302', BANCO, BANCO + '/cuenta'],
+    ['18:55:30', '198.51.100.23', 'GET /cuenta', 'lucia', '200', '-', BANCO + '/'],
+    ['19:02:11', '198.51.100.23', 'POST /cuenta/correo', 'lucia', '302', TRAMPA, TRAMPA + '/'],
+    ['19:03:40', '192.0.2.61', 'POST /cuenta/correo', 'pablo', '302', TRAMPA, TRAMPA + '/'],
+    ['19:04:03', '203.0.113.50', 'POST /recuperar-clave', '-', '200', BANCO, BANCO + '/login'],
+    ['19:05:22', '203.0.113.50', 'POST /recuperar-clave', '-', '200', BANCO, BANCO + '/login'],
+    ['19:06:47', '203.0.113.50', 'POST /nueva-clave', '-', '302', BANCO, BANCO + '/nueva-clave'],
+    ['19:07:15', '203.0.113.50', 'POST /nueva-clave', '-', '302', BANCO, BANCO + '/nueva-clave'],
+    ['19:09:58', '198.51.100.40', 'POST /cuenta/correo', 'ana_p', '302', TRAMPA, TRAMPA + '/'],
+    ['19:10:30', '198.51.100.40', 'POST /transferencias', 'ana_p', '302', BANCO, BANCO + '/transferencias'],
+    ['19:21:12', '198.51.100.23', 'POST /login', '-', '401', BANCO, BANCO + '/login'],
+  ],
+  cls: r => r[5] === TRAMPA || r[1] === '203.0.113.50' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Usuario', 'Evento', 'Detalle', 'IP'],
+  rows: [
+    ['18:41:05', 'jorge', 'correo cambiado', 'jorge@trabajo.example → jorge.r@correo.example', '192.0.2.15'],
+    ['19:02:11', 'lucia', 'correo cambiado', 'lucia@correo.example → premios@sorteo-ya.example', '198.51.100.23'],
+    ['19:03:40', 'pablo', 'correo cambiado', 'pablo@correo.example → premios@sorteo-ya.example', '192.0.2.61'],
+    ['19:04:03', 'lucia', 'restablecimiento pedido', 'enlace enviado a premios@sorteo-ya.example', '203.0.113.50'],
+    ['19:05:22', 'pablo', 'restablecimiento pedido', 'enlace enviado a premios@sorteo-ya.example', '203.0.113.50'],
+    ['19:06:47', 'lucia', 'contraseña cambiada', 'con el enlace de restablecimiento', '203.0.113.50'],
+    ['19:07:15', 'pablo', 'contraseña cambiada', 'con el enlace de restablecimiento', '203.0.113.50'],
+    ['19:09:58', 'ana_p', 'correo cambiado', 'ana@correo.example → premios@sorteo-ya.example', '198.51.100.40'],
+    ['19:21:12', 'lucia', 'inicio de sesión fallido', 'contraseña incorrecta', '198.51.100.23'],
+  ],
+  cls: r => r[3].includes('sorteo-ya') || r[4] === '203.0.113.50' ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+runLab('orden-en-tu-nombre', [
+  {q: '¿Desde qué web salió la orden que cambió el correo de Lucía?', type: 'text', ph: 'dominio',
+   accept: a => norm(a).replace(/\s|https?:\/\/|\/.*$/g, '') === 'sorteo-ya.example',
+   hint: 'Evidencia 1: busca el POST /cuenta/correo de lucia y mira las columnas Origin y Referer.',
+   explain: '<b>sorteo-ya.example.</b> La petición llega a las 19:02:11 desde la IP de Lucía y con su cookie, pero su <code>Origin</code> y su <code>Referer</code> son la web de sorteos, no el banco. Esa web escondía una orden para Banco Norte y el navegador de Lucía la envió por ella (CSRF, CWE-352).'},
+  {q: '¿Por qué el banco aceptó la orden como si la hubiera dado Lucía?', type: 'choice',
+   options: ['Porque el atacante sabía su contraseña', 'Porque su propio navegador envió la petición y le añadió su cookie de sesión, y el banco solo mira la cookie', 'Porque la web de sorteos hackeó el servidor del banco'], correct: 1,
+   wrong: '✗ Mira la IP de la petición de las 19:02:11 y cómo identifica al usuario cuenta.php (evidencia 3).',
+   explain: '<b>La cookie viajó sola.</b> La IP es la de Lucía (<code>198.51.100.23</code>): fue su navegador. <code>usuario_de_la_sesion()</code> solo mira la cookie, y no hay nada más (ni token, ni contraseña) que la web de sorteos no pudiera poner.'},
+  {q: '¿A qué correo pasó la cuenta de Lucía?', type: 'text', ph: 'correo',
+   accept: a => norm(a).replace(/\s/g, '') === 'premios@sorteo-ya.example',
+   hint: 'Evidencia 2, 19:02:11.',
+   explain: '<b>premios@sorteo-ya.example.</b> Desde ese momento, todo lo que el banco manda «a Lucía» llega al atacante. Y como el código no avisa al correo anterior, Lucía no se enteró.'},
+  {q: '¿Cuánto tiempo pasó entre el cambio de correo de Lucía y la petición para restablecer su contraseña?', type: 'text', ph: 'p. ej. 3 min 10 s',
+   accept: a => /^(1min(uto)?(y)?52s(eg(undos)?)?|1m52s|0?0?:?0?1:52|112(s|seg|segundos)?)$/.test(norm(a).replace(/\s/g, '')),
+   hint: 'Resta las horas de los dos eventos de lucia en la evidencia 2.',
+   explain: '<b>1 min 52 s</b> (19:02:11 → 19:04:03). Esa es la señal que caza un analista: un cambio de correo y, minutos después, un «he olvidado mi contraseña» de la misma cuenta. Cada evento por separado es normal; juntos y tan seguidos, no.'},
+  {q: '¿Desde qué IP se pidió el restablecimiento y se cambió la contraseña?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.50',
+   hint: 'Evidencias 1 y 2: POST /recuperar-clave y /nueva-clave.',
+   explain: '<b>203.0.113.50</b>, que no es la de Lucía. Aquí sí aparece el atacante: con el enlace que le llegó a su correo pone una contraseña nueva a las 19:06:47. A las 19:21 Lucía ya no puede entrar (401).'},
+  {q: 'A las 18:41 jorge también cambió su correo. ¿Es parte del ataque?', type: 'choice',
+   options: ['Sí: cualquier cambio de correo ese día es sospechoso', 'No: la petición sale del propio banco (Origin banco-norte.example), su correo nuevo no es del atacante y no hay restablecimiento después', 'No, porque fue antes de las 19:00'], correct: 1,
+   explain: '<b>Es un cambio legítimo.</b> Origin y Referer son del banco, el correo nuevo es suyo y no hay nada detrás. Por eso la alerta no puede ser «cambio de correo» a secas: daría falsos positivos todos los días.'},
+  {q: '¿Cuántos clientes acabaron con el correo cambiado a la cuenta del atacante?', type: 'text', ph: 'número',
+   accept: a => ['3', 'tres'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Evidencia 2: cuenta los usuarios con «→ premios@sorteo-ya.example».',
+   explain: '<b>Tres: lucia, pablo y ana_p.</b> A lucia y pablo ya les han cambiado la contraseña. ana_p todavía no: su cuenta se puede salvar si el banco devuelve el correo y bloquea los restablecimientos ahora.'},
+  {q: 'Su navegador trata las cookies sin SameSite como Lax, y esas no viajan en un POST que sale de otra web. ¿Por qué viajó la cookie de Lucía?', type: 'choice',
+   options: ['Porque Lucía usa un navegador antiguo', 'Porque el banco puso la cookie de sesión con SameSite=None, que pide justo lo contrario: enviarla también desde otras webs', 'Porque la web de sorteos le robó la cookie'], correct: 1,
+   wrong: '✗ Mira cómo crea la cookie login.php (evidencia 3).',
+   explain: '<b>SameSite=None.</b> Con <code>Lax</code> o <code>Strict</code>, un POST que sale de otra web no lleva la cookie y el banco no sabría quién es. Con <code>None</code> viaja siempre. Ojo: según OWASP, SameSite es una capa extra y no sustituye al token anti-CSRF.'},
+  {q: '¿Qué cambio en cuenta.php cierra el agujero de raíz?', type: 'choice',
+   options: ['Bloquear la IP 203.0.113.50', 'Exigir un token anti-CSRF secreto en el formulario y pedir la contraseña actual (o el 2FA) antes de cambiar el correo, avisando al correo anterior', 'Pedir a los clientes que no entren en webs de sorteos'], correct: 1,
+   wrong: '✗ Eso ayuda hoy, pero mañana será otra web y otra IP. Mira qué le falta a cuenta.php.',
+   explain: '<b>Token + confirmación.</b> La web de sorteos no puede leer el token que el banco pone en su formulario, así que su orden llega sin él y se rechaza (403). Y pedir la contraseña antes de cambiar el correo corta la cadena aunque fallara todo lo demás. Bloquear una IP no sirve: la orden la envía el navegador de cada víctima.'},
+], 'N4{la_orden_vuelve_a_ser_tuya}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
