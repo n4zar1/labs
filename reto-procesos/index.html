@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reto 3: ¿cuál es el virus? · Labs N4zar1</title>
+<meta name="description" content="Tercer reto de analista SOC: cinco procesos de Windows con su nombre, carpeta, proceso padre y firma, y uno es un virus disfrazado. Compáralos con lo normal y encuéntralo.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>Reto 3: ¿cuál es el virus?</h1>
+  <p class="lede">Fácil · ~10 min · Basado en el vídeo «Uno de estos cinco procesos es un virus. Tienes diez segundos».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Talleres Norte, una empresa ficticia. El antivirus del portátil de Laura (<code>PC-LAURA</code>) no ha dicho nada, pero el equipo va lento. Abres Process Explorer y te fijas en cinco procesos: son los cinco del vídeo. Uno es un virus que se hace pasar por un programa de Windows.</p>
+    <p><b>Tu misión:</b> encuéntralo y explica por qué los otros cuatro son normales. El método del analista: el nombre, la carpeta, el padre o la firma, por separado, no prueban nada. Compara cada proceso con <i>su</i> ficha de lo normal y cruza las columnas.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Los cinco procesos · PC-LAURA · 27/11 10:42</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (nombre, carpeta, padre…)" aria-label="Buscar en los procesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · La ficha de lo normal (resumen propio a partir del póster «Hunt Evil» de SANS y de Microsoft)</h3><span class="tools"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Programas instalados por la empresa (inventario)</h3></div>
+    <pre class="code">copias.exe      C:\Program Files\TalleresNorte\   Servicio «Copias Norte»: copia nocturna al NAS.
+                Hecho por el proveedor informático en 2019. Sin firma digital (avisado en la auditoría).
+OneDrive.exe    Instalación por usuario (por defecto): C:\Users\&lt;usuario&gt;\AppData\Local\Microsoft\OneDrive\
+Microsoft 365   WINWORD.EXE en C:\Program Files\Microsoft Office\root\Office16\</pre>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · Sysmon, evento 1 (proceso creado) del proceso 4</h3></div>
+    <pre class="code">Sysmon 1 · PC-LAURA · 27/11 09:58:13
+  Image:             C:\Users\laura\AppData\Roaming\<b>RuntimeBroker.exe</b>
+  CommandLine:       "C:\Users\laura\AppData\Roaming\RuntimeBroker.exe" -k netsvcs
+  User:              TALLERES\laura
+  ParentImage:       C:\Program Files\Microsoft Office\root\Office16\<b>WINWORD.EXE</b>
+  ParentCommandLine: "WINWORD.EXE" /n "C:\Users\laura\Downloads\Presupuesto_Noviembre.docm"
+  Signed:            false   (Process Explorer: «No signature was present in the subject»)</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p><b>La solución, entera.</b> El virus es el <b>proceso 4</b>, <code>RuntimeBroker.exe</code>. Su nombre es el de un proceso real de Windows, pero el de verdad vive en <code>C:\Windows\System32\</code> y lo abre <code>svchost.exe</code>. Este está en <code>AppData\Roaming</code> de Laura, lo abrió <code>WINWORD.EXE</code> y no tiene firma. Ninguna columna sola bastaba: lo delata el cruce. La historia: Laura abrió <code>Presupuesto_Noviembre.docm</code> (un Word con macros), pulsó «Habilitar contenido» y la macro dejó un programa con nombre de Windows para pasar desapercibido. Es la técnica <b>T1036.005</b> de MITRE ATT&amp;CK (Masquerading: Match Legitimate Name or Location).</p>
+    <p><b>Los despistes.</b> El 1 (<code>svchost.exe</code>) suena a virus porque los virus lo imitan mucho, pero está en System32, lo abre <code>services.exe</code> y lo firma Microsoft: es lo normal. El 2 (OneDrive) se ejecuta desde la carpeta del usuario, pero ahí se instala por defecto y está firmado. El 3 (<code>lsass.exe</code>) tiene un nombre raro, pero es el de Windows: System32 y padre <code>wininit.exe</code>. El 5 (<code>copias.exe</code>) no tiene firma, pero es el programa de copias de la empresa, en su carpeta y lanzado como servicio.</p>
+    <p><b>Lo que haría el analista:</b> aislar <code>PC-LAURA</code> de la red sin apagarlo, guardar el ejecutable y su hash, buscar el mismo archivo y el mismo documento en otros equipos, cambiar las contraseñas de Laura y activar la regla ASR de Defender que impide a Office crear procesos hijos.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Empresa, equipo, usuaria y programas de empresa ficticios; nada sale de tu navegador. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['#', 'Nombre', 'Carpeta', 'Proceso padre', 'Firma verificada'],
+  rows: [
+    ['1', 'svchost.exe', 'C:\\Windows\\System32\\', 'services.exe', 'Microsoft Windows'],
+    ['2', 'OneDrive.exe', 'C:\\Users\\laura\\AppData\\Local\\Microsoft\\OneDrive\\', 'explorer.exe', 'Microsoft Corporation'],
+    ['3', 'lsass.exe', 'C:\\Windows\\System32\\', 'wininit.exe', 'Microsoft Windows'],
+    ['4', 'RuntimeBroker.exe', 'C:\\Users\\laura\\AppData\\Roaming\\', 'WINWORD.EXE', '(sin firma)'],
+    ['5', 'copias.exe', 'C:\\Program Files\\TalleresNorte\\', 'services.exe', '(sin firma)'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+makeTable({
+  el: $('ev2'),
+  cols: ['Proceso de Windows', 'Su carpeta', 'Su padre de siempre', 'Cuántos'],
+  rows: [
+    ['svchost.exe', 'C:\\Windows\\System32\\', 'services.exe', 'Muchos'],
+    ['lsass.exe', 'C:\\Windows\\System32\\', 'wininit.exe', 'Uno'],
+    ['RuntimeBroker.exe', 'C:\\Windows\\System32\\', 'svchost.exe', 'Uno o varios'],
+    ['services.exe', 'C:\\Windows\\System32\\', 'wininit.exe', 'Uno'],
+    ['explorer.exe', 'C:\\Windows\\', 'userinit.exe (que se cierra)', 'Uno por usuario'],
+  ],
+  filters: [],
+});
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('reto-procesos', [
+  {q: '¿Qué proceso es el virus? (número del 1 al 5)', type: 'text', ph: 'número',
+   accept: a => ['4', 'el4', 'proceso4', 'cuatro'].includes(n(a)),
+   hint: 'Busca cada nombre en la ficha de lo normal (evidencia 2): ¿cuál no está donde debe ni lo abre quien debe?',
+   explain: '<b>El 4, RuntimeBroker.exe.</b> Es el único que falla en la carpeta y en el padre a la vez, y además no tiene firma. Ahora vamos a demostrarlo pieza a pieza.'},
+  {q: '¿En qué carpeta debería estar el RuntimeBroker.exe de verdad?', type: 'text', ph: 'carpeta',
+   accept: a => n(a).includes('system32'),
+   hint: 'Evidencia 2, columna «Su carpeta».',
+   explain: '<b>C:\\Windows\\System32\\.</b> Un nombre de Windows en <code>AppData\\Roaming</code> (una carpeta en la que cualquier programa del usuario puede escribir sin permisos de administrador) es una señal clásica de disfraz.'},
+  {q: '¿Qué proceso padre abrió el proceso 4?', type: 'text', ph: 'proceso',
+   accept: a => ['winword.exe', 'winword', 'word', 'microsoftword'].includes(n(a)),
+   hint: 'Columna «Proceso padre», o ParentImage en la evidencia 4.',
+   explain: '<b>WINWORD.EXE.</b> Word no tiene por qué lanzar un programa desde AppData, y el RuntimeBroker de verdad lo abre <code>svchost.exe</code>. La evidencia 4 dice qué documento estaba abierto: <code>Presupuesto_Noviembre.docm</code>, un Word con macros.'},
+  {q: 'El proceso 1 es svchost.exe, un nombre que los virus imitan mucho. ¿Por qué es normal?', type: 'choice',
+   options: ['Porque svchost.exe nunca puede ser un virus', 'Porque coincide con su ficha: está en System32, lo abre services.exe y lo firma Microsoft', 'Porque es el primero de la lista'], correct: 1,
+   wrong: '✗ Un virus sí puede llamarse svchost.exe; lo que cuenta es si coincide con lo normal.',
+   explain: '<b>El nombre no prueba nada, ni para bien ni para mal.</b> Este svchost coincide en todo con su ficha. Si estuviera en otra carpeta o lo abriera otro padre, entonces sí.'},
+  {q: 'OneDrive se ejecuta desde la carpeta del usuario (AppData). ¿Por qué no es el virus?', type: 'choice',
+   options: ['Porque OneDrive se instala por defecto en la carpeta de cada usuario, lo abre explorer.exe al iniciar sesión y está firmado por Microsoft', 'Porque todo lo que hay en AppData es seguro', 'Porque OneDrive no puede tener virus'], correct: 0,
+   wrong: '✗ En AppData también se esconden virus (mira el 4). Lo que cuenta es si encaja con lo normal de ese programa.',
+   explain: '<b>Una carpeta rara tampoco basta.</b> La instalación por usuario de OneDrive va a <code>AppData\\Local\\Microsoft\\OneDrive</code> (evidencia 3), la abre el Explorador y la firma es válida.'},
+  {q: 'copias.exe no tiene firma digital. ¿Es el virus?', type: 'choice',
+   options: ['Sí: sin firma = virus', 'No: es el programa de copias de la empresa, en su carpeta de Program Files y lanzado como servicio por services.exe', 'No se puede saber nunca'], correct: 1,
+   wrong: '✗ Muchos programas hechos para una empresa no llevan firma. Mira la evidencia 3.',
+   explain: '<b>Sin firma no significa virus.</b> Es una herramienta interna conocida (inventario), en <code>Program Files</code> (donde solo instala un administrador) y su padre es el de los servicios. Lo correcto es pedir al proveedor que la firme, no borrarla.'},
+  {q: '¿Qué evento de Sysmon da la carpeta del programa (Image) y su padre (ParentImage)?', type: 'text', ph: 'número',
+   accept: a => ['1', 'evento1', 'eventid1'].includes(n(a)),
+   hint: 'Evidencia 4, primera línea.',
+   explain: '<b>Sysmon 1</b> (Process Create). Sin Sysmon, el evento 4688 del registro de Seguridad da el «Creator Process Name». En casa, Process Explorer (Sysinternals, gratis) te enseña el árbol de procesos, la carpeta (Image Path) y la firma (Options → Verify Image Signatures).'},
+  {q: '¿Qué técnica de MITRE ATT&CK es «ponerle a un virus el nombre o la carpeta de un programa legítimo»?', type: 'choice',
+   options: ['T1036.005 · Masquerading: Match Legitimate Name or Location', 'T1110 · Brute Force', 'T1566 · Phishing'], correct: 0,
+   wrong: '✗ Piensa en «disfraz».',
+   explain: '<b>T1036.005.</b> El phishing (T1566) fue la puerta de entrada (el .docm), pero el disfraz del proceso es Masquerading. Hay reglas Sigma públicas para RuntimeBroker o svchost fuera de System32 o con un padre que no toca.'},
+  {q: '¿Qué haces primero?', type: 'choice',
+   options: ['Matar el proceso y seguir trabajando', 'Aislar PC-LAURA de la red sin apagarlo, guardar el ejecutable y su hash, y buscar el mismo archivo en otros equipos', 'Borrar copias.exe por no tener firma'], correct: 1,
+   wrong: '✗ Matar el proceso no saca al atacante ni te dice si hay más equipos infectados.',
+   explain: '<b>Contener primero.</b> Aislar el equipo (sin apagarlo, para no perder pruebas), guardar el ejecutable y su hash, buscarlo en el resto de la empresa, cambiar las contraseñas de Laura y activar la regla ASR de Defender que impide a Office crear procesos hijos.'},
+], 'N4{no_esta_donde_debe}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
