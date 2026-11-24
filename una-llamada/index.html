@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Una llamada · Labs N4zar1</title>
+<meta name="description" content="Reto de analista SOC basado en el hackeo de Twitter de 2020: una llamada del falso «soporte técnico», una web de VPN falsa y un panel interno con poder sobre cualquier cuenta. Cruza avisos, proxy, inicios de sesión y auditoría y descubre qué pasó.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>Una llamada</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «Tenía 17 años. Con unas llamadas de teléfono, tomaron la cuenta de Obama».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Gaviota es una red social ficticia. El 15/10 por la tarde, cuatro cuentas verificadas publican lo mismo: «Envíame bitcoin y te lo devuelvo el doble». Ninguno de sus dueños lo ha escrito. El día antes, varios empleados recibieron llamadas de un supuesto «soporte técnico» por un fallo de la VPN.</p>
+    <p><b>Tu misión:</b> como en el hackeo real de Twitter de julio de 2020, reconstruye el ataque con los registros: quién recibió la llamada, qué web visitó, cómo entraron los atacantes, qué hicieron con el panel interno de cuentas y qué lo habría frenado. Usa los buscadores.</p>
+  </div>
+
+  <div class="evidence" id="ev0">
+    <div class="hd"><h3>1 · Avisos de empleados al equipo de seguridad (14/10)</h3></div>
+    <pre class="code">Hora    Empleado   Aviso
+15:08   r.vidal    Me llama alguien de «soporte técnico» por un fallo de mi VPN y me pide entrar
+                   en una web para «revalidar» mi usuario. No me cuadra: he colgado y lo aviso.
+16:40   m.ortega   He recibido una llamada parecida pero no la he cogido. Número oculto.</pre>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>2 · Proxy web · webs visitadas desde los portátiles (14/10, 15:00 → 16:00)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (usuario, dominio…)" aria-label="Buscar en el proxy"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>3 · Inicios de sesión en la VPN (SigninLogs, 14/10 → 15/10)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (usuario, IP, ubicación…)" aria-label="Buscar en los inicios de sesión"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>4 · Auditoría del panel interno de cuentas (15/10)</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (empleado, acción, cuenta…)" aria-label="Buscar en la auditoría del panel"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Gaviota: cerrar las sesiones de <code>l.pinto</code> y <code>d.sanz</code> y cambiar sus credenciales, bloquear la IP 203.0.113.66, devolver el correo y el doble factor originales a las cuatro cuentas y borrar los mensajes de la estafa, pedir la retirada del dominio falso y guardar todos los registros con su fecha. Para la próxima: llaves de seguridad FIDO2 para la VPN y el panel, el panel solo para quien lo necesita, una segunda aprobación para cambiar el correo o el doble factor de cuentas verificadas, y una alerta cuando un empleado toque muchas cuentas en pocos minutos. Y agradecer a <code>r.vidal</code> que colgara y avisara. Si eres víctima en España, el 017 de INCIBE te ayuda.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Red social, empleados, cuentas, horas, dominios e IPs ficticios (dominios .example e IPs de documentación); nada sale de tu navegador. Inspirado en el informe del NYDFS (oct. 2020) sobre el hackeo de Twitter. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const dd = n => String(n).padStart(2, '0');
+const GENTE = ['r.vidal', 'l.pinto', 'd.sanz', 'm.ortega', 'c.gil', 'p.navas'];
+
+// Proxy: ruido de trabajo + la VPN real (vpn.gaviota.example) + la falsa (vpn-gaviota.example, dominio de 2 días).
+const WEBS = [['vpn.gaviota.example', 'VPN de la empresa'], ['intranet.gaviota.example', 'Intranet'], ['correo.gaviota.example', 'Correo'], ['docs.example', 'Ofimática'], ['noticias.example', 'Noticias']];
+const proxy = [];
+for (let i = 0; i < 36; i++) {
+  const [d, c] = WEBS[(i * 3) % WEBS.length];
+  proxy.push(['14/10 15:' + dd((i * 37) % 60), GENTE[(i * 5) % GENTE.length], d, c, 'Permitido']);
+}
+proxy.push(['14/10 15:14', 'l.pinto', 'vpn-gaviota.example', 'Dominio nuevo (registrado hace 2 días)', 'Permitido']);
+proxy.push(['14/10 15:33', 'd.sanz', 'vpn-gaviota.example', 'Dominio nuevo (registrado hace 2 días)', 'Permitido']);
+proxy.sort((a, b) => a[0] < b[0] ? -1 : 1);
+makeTable({ el: $('ev1'), cols: ['Fecha y hora', 'Usuario', 'Dominio', 'Categoría', 'Acción'], rows: proxy,
+  cls: r => r[2] === 'vpn-gaviota.example' ? 'w' : '', filters: [{el: $('q1'), test: q()}] });
+
+// Inicios de sesión: todos desde la oficina (192.0.2.10) o su casa; dos desde 203.0.113.66 con push aprobado.
+const sig = [];
+['14/10', '15/10'].forEach((dia, n) => GENTE.forEach((u, k) => {
+  sig.push([dia + ' ' + dd(8 + k % 3) + ':' + dd((k * 13 + n * 7) % 60), u, '192.0.2.10', 'Oficina · Madrid', 'Portátil de la empresa', 'Push aprobado', 'Correcto']);
+  if ((k + n) % 2 === 0) sig.push([dia + ' 21:' + dd((k * 11) % 60), u, '198.51.100.' + (20 + k), 'Casa · Madrid', 'Portátil de la empresa', 'Push aprobado', 'Correcto']);
+}));
+sig.push(['14/10 15:14', 'l.pinto', '203.0.113.66', 'Ubicación nunca vista', 'Windows · sin registrar', 'Push aprobado', 'Correcto']);
+sig.push(['14/10 15:34', 'd.sanz', '203.0.113.66', 'Ubicación nunca vista', 'Windows · sin registrar', 'Push aprobado', 'Correcto']);
+sig.push(['15/10 16:12', 'd.sanz', '203.0.113.66', 'Ubicación nunca vista', 'Windows · sin registrar', 'Sesión ya abierta', 'Correcto']);
+sig.sort((a, b) => a[0] < b[0] ? -1 : 1);
+makeTable({ el: $('ev2'), cols: ['Fecha y hora', 'Usuario', 'IP', 'Ubicación', 'Aparato', 'Doble factor', 'Resultado'], rows: sig,
+  cls: () => '', filters: [{el: $('q2'), test: q()}] });
+
+// Auditoría del panel: trabajo normal por la mañana; l.pinto sin permiso; d.sanz desde 203.0.113.66 toca 4 cuentas verificadas.
+const aud = [
+  ['15/10 09:12', 'd.sanz', '192.0.2.10', 'ver perfil', '@cliente_4412', 'Correcto'],
+  ['15/10 09:40', 'c.gil', '192.0.2.10', 'restablecer contraseña', '@cliente_0907', 'Correcto'],
+  ['15/10 10:02', 'l.pinto', '203.0.113.66', 'abrir panel', '—', 'Acceso denegado (sin permiso)'],
+  ['15/10 11:25', 'd.sanz', '192.0.2.10', 'ver perfil', '@cliente_5120', 'Correcto'],
+  ['15/10 12:03', 'c.gil', '192.0.2.10', 'cambiar correo', '@cliente_3381', 'Correcto (ticket #8812)'],
+  ['15/10 16:17', 'd.sanz', '203.0.113.66', 'cambiar correo', '@alcaldia_oficial ✓', 'Correcto'],
+  ['15/10 16:18', 'd.sanz', '203.0.113.66', 'desactivar 2FA', '@alcaldia_oficial ✓', 'Correcto'],
+  ['15/10 16:19', 'd.sanz', '203.0.113.66', 'cambiar correo', '@futbolista_9 ✓', 'Correcto'],
+  ['15/10 16:20', 'd.sanz', '203.0.113.66', 'desactivar 2FA', '@futbolista_9 ✓', 'Correcto'],
+  ['15/10 16:22', 'd.sanz', '203.0.113.66', 'cambiar correo', '@banco_gaviota ✓', 'Correcto'],
+  ['15/10 16:23', 'd.sanz', '203.0.113.66', 'desactivar 2FA', '@banco_gaviota ✓', 'Correcto'],
+  ['15/10 16:25', 'd.sanz', '203.0.113.66', 'cambiar correo', '@cantante_oficial ✓', 'Correcto'],
+  ['15/10 16:26', 'd.sanz', '203.0.113.66', 'desactivar 2FA', '@cantante_oficial ✓', 'Correcto'],
+];
+makeTable({ el: $('ev3'), cols: ['Fecha y hora', 'Empleado', 'IP', 'Acción', 'Cuenta', 'Resultado'], rows: aud,
+  cls: r => r[2] === '203.0.113.66' ? 'w' : '', filters: [{el: $('q3'), test: q()}] });
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('una-llamada', [
+  {q: '¿Qué empleado colgó la llamada del falso soporte y avisó a seguridad?', type: 'text', ph: 'usuario',
+   accept: a => ['r.vidal', 'rvidal', 'vidal'].includes(n(a)),
+   hint: 'Evidencia 1.',
+   explain: '<b>r.vidal.</b> Colgar y avisar es la mejor defensa contra el vishing (phishing por teléfono). En el caso real de Twitter, algunos empleados también avisaron de las llamadas, pero al menos uno se las creyó.'},
+  {q: '¿Qué dominio usaba la web falsa de la VPN?', type: 'text', ph: 'dominio',
+   accept: a => n(a).replace(/^https?:\/\//, '').replace(/\/.*$/, '') === 'vpn-gaviota.example',
+   hint: 'Compara los dominios del proxy con el de la VPN real (vpn.gaviota.example).',
+   explain: '<b>vpn-gaviota.example</b>: un guion en lugar de un punto, y registrado hace dos días. El informe del NYDFS cuenta lo mismo del caso real: una web idéntica a la VPN de Twitter con un dominio parecido.'},
+  {q: '¿Qué dos empleados entraron en esa web?', type: 'choice',
+   options: ['r.vidal y m.ortega', 'l.pinto y d.sanz', 'c.gil y p.navas', 'Solo d.sanz'], correct: 1,
+   wrong: '✗ Escribe el dominio falso en el buscador del proxy.',
+   explain: '<b>l.pinto y d.sanz</b>, a las 15:14 y a las 15:33. Mira la evidencia 3: justo en ese minuto alguien inicia sesión con sus usuarios desde otra IP.'},
+  {q: '¿Desde qué IP entraron los atacantes con sus credenciales?', type: 'text', ph: 'dirección IP',
+   accept: a => n(a) === '203.0.113.66',
+   hint: 'Busca l.pinto o d.sanz en la evidencia 3 y mira la ubicación y el aparato.',
+   explain: '<b>203.0.113.66</b>: ubicación nunca vista y un Windows sin registrar. Es la señal que un analista mira en <code>SigninLogs</code> (columnas Location y DeviceDetail); Entra ID Protection la marca como «unfamiliar sign-in properties».'},
+  {q: 'Tenían doble factor. ¿Cómo lo pasaron?', type: 'choice',
+   options: ['Rompieron el cifrado del doble factor', 'Mientras el empleado escribía en la web falsa, ellos entraban en la real y el empleado aprobó el aviso push en su móvil', 'El doble factor estaba desactivado'], correct: 1,
+   wrong: '✗ Mira la columna «Doble factor» de esos dos inicios de sesión.',
+   explain: '<b>El empleado lo aprobó.</b> El aviso le llegó justo cuando creía estar entrando en su VPN, así que pulsó «Aprobar». Es lo que describe el NYDFS en el caso real: el doble factor por app «se puede saltar» si convences a la persona.'},
+  {q: 'l.pinto también cayó, pero no pudo usar el panel de cuentas. ¿Por qué?', type: 'choice',
+   options: ['Porque el panel estaba caído', 'Porque no tenía permiso para usarlo: su puesto no lo necesita', 'Porque cambió su contraseña a tiempo'], correct: 1,
+   wrong: '✗ Busca l.pinto en la auditoría del panel.',
+   explain: '<b>No tenía permiso.</b> Es el mínimo privilegio funcionando. Por eso los atacantes fueron a por d.sanz, que sí tenía acceso. En Twitter pasó igual: el primer empleado no tenía acceso a las herramientas y fueron a por otros que sí. Más de 1.000 empleados lo tenían.'},
+  {q: '¿A cuántas cuentas verificadas les cambiaron el correo con el usuario de d.sanz?', type: 'text', ph: 'número',
+   accept: a => ['4', 'cuatro'].includes(n(a)),
+   hint: 'Evidencia 4: busca «cambiar correo» y la IP 203.0.113.66.',
+   explain: '<b>Cuatro</b>, en nueve minutos, y después les quitaron el doble factor: así el dueño ya no puede recuperar su cuenta. Un empleado que toca muchas cuentas verificadas en pocos minutos, desde una IP nueva y sin ticket, es una alerta clarísima (MITRE T1098, Account Manipulation).'},
+  {q: '¿Qué técnica de MITRE ATT&CK es la llamada del falso soporte?', type: 'choice',
+   options: ['T1566.004 · Phishing: Spearphishing Voice', 'T1190 · Exploit Public-Facing Application', 'T1486 · Data Encrypted for Impact'], correct: 0,
+   wrong: '✗ No explotaron ningún fallo ni cifraron nada: hablaron por teléfono.',
+   explain: '<b>T1566.004, Spearphishing Voice</b> (vishing). Después, usar las credenciales robadas es T1078 (Valid Accounts). Sin malware ni exploits, como en Twitter.'},
+  {q: '¿Qué habría frenado el ataque aunque el empleado lo aprobara todo?', type: 'choice',
+   options: ['Una contraseña más larga', 'Llaves de seguridad FIDO2: la llave comprueba el dominio y no firma para vpn-gaviota.example', 'Un antivirus en el portátil'], correct: 1,
+   wrong: '✗ Piensa en qué paso del ataque no depende de que la persona se dé cuenta.',
+   explain: '<b>La llave FIDO2.</b> La llave solo responde a la web real, así que lo que el empleado haga en la falsa no sirve de nada. El NYDFS dice que una llave física «would have stopped the Hackers», y Twitter las implantó después.'},
+], 'N4{colgar_tambien_es_seguridad}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
