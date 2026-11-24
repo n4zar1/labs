@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reto 2: la cabecera del correo · Labs N4zar1</title>
+<meta name="description" content="Reto 2 de analista SOC: un correo que parece de tu banco y las seis líneas de su cabecera. Una lo delata. Lee SPF, DKIM y DMARC como un analista y descubre cuál.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-academia" href="https://academiaciber.com">Academia</a></nav>
+  </header>
+
+  <h1>Reto 2: la cabecera del correo</h1>
+  <p class="lede">Fácil · ~10 min · Basado en el vídeo «Este correo parece de tu banco. Una sola línea dice que no. ¿La encuentras?».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> A las 03:12 te llega un correo de «Banco Sol» (un banco inventado): «Tu cuenta será bloqueada hoy. Verifica tus datos antes de las 23:59», con un botón rojo. El nombre, el logo y la dirección parecen buenos. Abres la cabecera (en Gmail, desde el ordenador: ⋮ → <i>Mostrar original</i>) y ves las seis líneas del vídeo. Una lo delata.</p>
+    <p><b>Tu misión:</b> encuentra la línea, demuestra por qué las otras cinco no prueban nada y decide qué harías. El método del analista: no te fíes de lo que escribe el remitente; fíate de lo que comprobó <i>tu</i> servidor al recibirlo.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · Las seis líneas del vídeo</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (dominio, spf, dmarc…)" aria-label="Buscar en la cabecera"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · La cabecera completa («Mostrar original»)</h3></div>
+    <pre class="code">Return-Path: &lt;rebote@envios-masivos.example&gt;
+Received: from smtp.envios-masivos.example (smtp.envios-masivos.example [203.0.113.45])
+        by mx.tucorreo.example with ESMTPS; Tue, 24 Nov 2026 03:12:07 +0100
+Authentication-Results: mx.tucorreo.example;
+       spf=pass (203.0.113.45 está autorizada por envios-masivos.example) smtp.mailfrom=envios-masivos.example;
+       dkim=none (el mensaje no está firmado);
+       <b>dmarc=fail (p=REJECT) header.from=bancosol.example</b>
+Date: Tue, 24 Nov 2026 03:12:05 +0100
+From: Banco Sol &lt;info@bancosol.example&gt;
+To: tu.nombre@tucorreo.example
+Subject: Tu cuenta será bloqueada hoy
+Message-ID: &lt;8f2a1c90.4471@envios-masivos.example&gt;
+Content-Type: text/html; charset=UTF-8</pre>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · Lo normal: un correo de verdad de Banco Sol (extracto de la cabecera, 3/11)</h3></div>
+    <pre class="code">Return-Path: &lt;rebote@envios-masivos.example&gt;
+Received: from smtp.envios-masivos.example ([203.0.113.45]) by mx.tucorreo.example
+DKIM-Signature: v=1; a=rsa-sha256; d=bancosol.example; s=envios; …
+Authentication-Results: mx.tucorreo.example;
+       spf=pass smtp.mailfrom=envios-masivos.example;
+       dkim=pass header.d=bancosol.example;
+       dmarc=pass header.from=bancosol.example
+From: Banco Sol &lt;info@bancosol.example&gt;
+Subject: Tu extracto de octubre ya está disponible
+
+Nota del banco: «Enviamos nuestros avisos a través de nuestro proveedor de correo, envios-masivos.example,
+y los firmamos con DKIM. Nunca te pediremos tus claves por correo.»</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p><b>La solución, entera.</b> La línea que lo delata es la <b>3, Authentication-Results</b>, y en concreto <code>dmarc=fail</code>. Esa línea no la escribe quien envía el correo: la añade <i>tu</i> servidor (<code>mx.tucorreo.example</code>) después de comprobarlo. (1) <b>SPF pasa</b>, pero para <code>envios-masivos.example</code>, el dominio del Return-Path, no para el banco. (2) <b>DKIM: none</b>, nadie firmó el mensaje. (3) <b>DMARC</b> exige que SPF o DKIM pasen <i>para el mismo dominio que ves en el From</i> (<code>bancosol.example</code>). Ninguno cuadra, así que falla, y el banco publica <code>p=REJECT</code>: pide que se rechacen los correos que fallen.</p>
+    <p><b>Los despistes.</b> El 1 (Return-Path) y el 2 (Received) son de otra empresa, pero el correo de verdad del banco (evidencia 3) sale del mismo proveedor: lo que cambia es que ese va firmado con DKIM por <code>bancosol.example</code> y DMARC pasa. El 4 (las 03:12) y el 6 (la urgencia) son sospechosos, pero no prueban nada técnico. El 5 (From) es justo lo que se falsifica: se escribe a mano, como el remitente de un sobre.</p>
+    <p><b>Lo que haría el analista:</b> no pulsar nada; denunciarlo como phishing; en la empresa, buscar en el correo quién más lo recibió y quién pulsó el enlace, bloquear el dominio y la URL, y si alguien metió sus datos, cambiar la contraseña y avisar al banco por su teléfono oficial. Técnica de MITRE ATT&amp;CK: T1566 (Phishing).</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Banco, dominios, cuentas e IPs ficticios (dominios .example e IP de documentación); nada sale de tu navegador. Practica solo en sistemas propios o con permiso. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+
+makeTable({
+  el: $('ev1'),
+  cols: ['#', 'Campo', 'Valor'],
+  rows: [
+    ['1', 'Return-Path:', '<rebote@envios-masivos.example>'],
+    ['2', 'Received: from', 'smtp.envios-masivos.example'],
+    ['3', 'Authentication-Results:', 'spf=pass dkim=none dmarc=fail'],
+    ['4', 'Date:', 'mar, 24 nov 2026 03:12'],
+    ['5', 'From:', 'Banco Sol <info@bancosol.example>'],
+    ['6', 'Subject:', 'Tu cuenta será bloqueada hoy'],
+  ],
+  filters: [{el: $('q1'), test: q()}],
+});
+
+const n = a => norm(a).replace(/\s/g, '');
+runLab('reto-cabecera', [
+  {q: '¿Qué línea delata que el correo no es del banco? (número del 1 al 6)', type: 'text', ph: 'número',
+   accept: a => ['3', 'la3', 'linea3', 'línea3', 'tres'].includes(n(a)),
+   hint: '¿Cuál de las seis líneas no la escribe quien envía el correo, sino tu propio servidor?',
+   explain: '<b>La 3, Authentication-Results.</b> Es la única que añade tu servidor al recibir el correo, con el resultado de sus comprobaciones. Las demás las puede escribir cualquiera. Ahora vamos a demostrarlo.'},
+  {q: 'En esa línea, ¿qué resultado da DMARC?', type: 'text', ph: 'resultado',
+   accept: a => ['fail', 'dmarc=fail', 'falla', 'fallo'].includes(n(a)),
+   hint: 'Evidencia 2, última línea de Authentication-Results.',
+   explain: '<b>fail.</b> DMARC comprueba que el dominio del From (<code>bancosol.example</code>) está respaldado por SPF o por DKIM. Aquí no lo está. Y el banco publica <code>p=REJECT</code>: pide que esos correos se rechacen.'},
+  {q: 'SPF da «pass». ¿Para qué dominio?', type: 'text', ph: 'dominio',
+   accept: a => n(a).includes('envios-masivos'),
+   hint: 'Busca smtp.mailfrom= en la evidencia 2.',
+   explain: '<b>envios-masivos.example</b>, el del Return-Path. SPF solo dice que ese servidor puede enviar correo de <i>ese</i> dominio, no del banco. Por eso un «spf=pass» solo no te dice nada: mira siempre para qué dominio es.'},
+  {q: 'El Return-Path y el Received son de otra empresa. ¿Por qué eso solo no prueba que sea falso?', type: 'choice',
+   options: ['Porque el correo de verdad del banco también sale de esa empresa de envíos: lo que cambia es la firma DKIM del banco', 'Porque el Return-Path siempre es igual al From', 'Porque los servidores de correo nunca se equivocan'], correct: 0,
+   wrong: '✗ Compara la evidencia 2 con la 3: mismo Return-Path, mismo servidor… ¿qué cambia?',
+   explain: '<b>Enviar con otra empresa es normal.</b> Bancos, tiendas y newsletters usan proveedores de correo. En el correo real (evidencia 3) el Return-Path es el mismo, pero va firmado con <code>DKIM d=bancosol.example</code> y DMARC pasa.'},
+  {q: 'La línea 5 dice «From: Banco Sol &lt;info@bancosol.example&gt;». ¿Qué prueba?', type: 'choice',
+   options: ['Que lo envió el banco', 'Nada: el remitente lo escribe quien envía el correo, como en un sobre', 'Que la dirección existe'], correct: 1,
+   wrong: '✗ El From es texto que pone quien envía. Es justo lo que se falsifica en el phishing.',
+   explain: '<b>Nada.</b> El From es lo que ves en tu bandeja y es lo primero que se falsifica. Para eso existe DMARC: comprueba que ese From está respaldado por SPF o DKIM del mismo dominio.'},
+  {q: '¿Qué campo de la cabecera añade TU servidor con los resultados de SPF, DKIM y DMARC?', type: 'text', ph: 'nombre del campo',
+   accept: a => n(a).replace(/:$/, '') === 'authentication-results',
+   hint: 'Empieza por «Authentication-».',
+   explain: '<b>Authentication-Results</b> (RFC 8601). Fíjate en que lo firme tu proveedor (aquí <code>mx.tucorreo.example</code>): uno que venga de fuera con otro nombre no vale.'},
+  {q: 'En Gmail, desde el ordenador, ¿qué opción del menú ⋮ del correo enseña la cabecera completa?', type: 'text', ph: 'opción',
+   accept: a => n(a).includes('mostraroriginal') || n(a).includes('showoriginal'),
+   hint: 'Dos palabras: enseña el correo «sin maquillar».',
+   explain: '<b>Mostrar original.</b> Arriba te resume SPF, DKIM y DMARC con PASS o FAIL, y debajo está la cabecera completa. En Outlook clásico: Archivo → Propiedades → Encabezados de Internet.'},
+  {q: '¿Qué haces?', type: 'choice',
+   options: ['Pulsar el botón para ver qué pide', 'No pulsar nada, denunciarlo como phishing y, si ya metiste datos, cambiar la contraseña y llamar al banco a su teléfono oficial', 'Responder al correo para preguntar si es real'], correct: 1,
+   wrong: '✗ Si el correo es falso, el botón, la respuesta y el teléfono que trae son del atacante.',
+   explain: '<b>No interactuar y avisar.</b> En una empresa, el SOC además busca quién más lo recibió y quién pulsó, bloquea el dominio y la URL y cambia las claves de quien las metió (MITRE ATT&amp;CK T1566, Phishing).'},
+], 'N4{dmarc_no_miente}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
